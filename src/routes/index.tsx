@@ -23,7 +23,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Internal control panel for Talk'n'Bit: bot status, WhatsApp and OpenAI configuration, message activity and correction prompt settings.",
+          "Internal control panel for Talk'n'Bit: bot status, WhatsApp and AI model configuration, message activity and correction prompt settings.",
       },
       { property: "og:title", content: "Talk'n'Bit — WhatsApp English Correction Bot" },
       {
@@ -110,7 +110,9 @@ function Dashboard({ email }: { email: string }) {
   const meta = data?.meta;
   const botOn = data?.settings?.bot_enabled ?? false;
   const metaReady = meta?.ready ?? false;
-  const openaiReady = data?.openai.configured ?? false;
+  const ai = data?.ai;
+  const aiReady = ai?.configured ?? data?.openai.configured ?? false;
+  const aiLabel = ai?.label ?? (aiReady ? "Configured" : "Not configured");
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-5xl px-5 py-10">
@@ -122,8 +124,8 @@ function Dashboard({ email }: { email: string }) {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <StatusPill tone={botOn && metaReady && openaiReady ? "ok" : botOn ? "warn" : "idle"}>
-            {botOn ? (metaReady && openaiReady ? "Live" : "On, incomplete setup") : "Paused"}
+          <StatusPill tone={botOn && metaReady && aiReady ? "ok" : botOn ? "warn" : "idle"}>
+            {botOn ? (metaReady && aiReady ? "Live" : "On, incomplete setup") : "Paused"}
           </StatusPill>
           <Button variant="secondary" size="sm" onClick={() => supabase.auth.signOut()}>
             Sign out
@@ -138,7 +140,7 @@ function Dashboard({ email }: { email: string }) {
           </Label>
           <p className="mt-1 text-sm text-muted-foreground">
             When off, WhatsApp messages are still acknowledged and logged, but nothing is sent to
-            OpenAI and no reply goes out.
+            the AI model and no reply goes out.
           </p>
         </div>
         <Switch
@@ -186,11 +188,14 @@ function Dashboard({ email }: { email: string }) {
 
             <div className="panel p-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">OpenAI</h2>
-                <StatusPill tone={openaiReady ? "ok" : "bad"}>
-                  {openaiReady ? "Configured" : "Not configured"}
+                <h2 className="text-lg font-semibold">AI Engine</h2>
+                <StatusPill tone={aiReady ? "ok" : "bad"}>
+                  {aiReady ? "Configured" : "Not configured"}
                 </StatusPill>
               </div>
+              <p className="mt-2 font-mono text-xs text-primary">
+                {aiLabel}
+              </p>
               <p className="mt-4 text-sm text-muted-foreground">
                 One request per incoming message, returning structured JSON with the correction
                 decision. Replies are only sent when a real mistake is detected.
@@ -244,7 +249,7 @@ function Dashboard({ email }: { email: string }) {
           <div className="panel p-6">
             <h2 className="text-lg font-semibold">Correction instructions</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              The prompt sent to OpenAI with every message. It must keep asking for JSON with
+              The prompt sent to the AI model with every message. It must keep asking for JSON with
               has_error, corrected_text, explanation and reply.
             </p>
             <Textarea

@@ -82,8 +82,9 @@ function PrivacyPage() {
               API.
             </li>
             <li>
-              <strong>OpenAI</strong> — to analyze messages and generate corrections. Message
-              content may be sent to OpenAI for this purpose.
+              <strong>AI processing providers (Anthropic / OpenRouter / OpenAI)</strong> — to
+              analyze messages and generate English language corrections. Message content may be
+              sent to these providers solely for processing corrections.
             </li>
             <li>
               <strong>Hosting providers</strong> — to run the service infrastructure and store logs.

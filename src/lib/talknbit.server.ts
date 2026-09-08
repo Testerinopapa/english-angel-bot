@@ -30,8 +30,65 @@ export function metaConfigStatus() {
   };
 }
 
+export type AIConfig = {
+  provider: "openrouter" | "anthropic" | "openai" | null;
+  model: string;
+  configured: boolean;
+  label: string;
+};
+
+export function getAIConfig(): AIConfig {
+  const openRouterKey = process.env["OPENROUTER_API_KEY"] || process.env["CLAUDE_API_KEY"];
+  const anthropicKey = process.env["ANTHROPIC_API_KEY"];
+  const openAiKey = process.env["OPENAI_API_KEY"];
+
+  // OpenRouter key or Anthropic key that uses OpenRouter prefix
+  if (openRouterKey || (anthropicKey && anthropicKey.startsWith("sk-or-v1-"))) {
+    const model = process.env["CLAUDE_MODEL"] || process.env["AI_MODEL"] || "anthropic/claude-3-haiku";
+    return {
+      provider: "openrouter",
+      model,
+      configured: true,
+      label: `Claude (${model.replace("anthropic/", "")}) via OpenRouter`,
+    };
+  }
+
+  // Direct Anthropic API key
+  if (anthropicKey && anthropicKey.startsWith("sk-ant-")) {
+    const model = process.env["CLAUDE_MODEL"] || process.env["AI_MODEL"] || "claude-3-haiku-20240307";
+    return {
+      provider: "anthropic",
+      model,
+      configured: true,
+      label: `Claude (${model}) via Anthropic`,
+    };
+  }
+
+  // Fallback to OpenAI
+  if (openAiKey) {
+    const model = process.env["OPENAI_MODEL"] || process.env["AI_MODEL"] || "gpt-4o-mini";
+    return {
+      provider: "openai",
+      model,
+      configured: true,
+      label: `OpenAI (${model})`,
+    };
+  }
+
+  return {
+    provider: null,
+    model: "none",
+    configured: false,
+    label: "Not configured",
+  };
+}
+
+export function aiConfigStatus(): AIConfig {
+  return getAIConfig();
+}
+
 export function openAiConfigured(): boolean {
-  return Boolean(process.env["OPENAI_API_KEY"]);
+  return getAIConfig().configured;
 }
 
 /** Keep only the last 4 digits of a phone identifier: 55•••••1234 */
@@ -117,58 +174,149 @@ export type CorrectionResult = {
   reply: string;
 };
 
-/** One OpenAI request per message; returns null when the response is unusable. */
+/** Send correction request to configured AI provider; returns null when the response is unusable. */
 export async function requestCorrection(
   systemPrompt: string,
   userText: string,
 ): Promise<CorrectionResult | null> {
-  const apiKey = process.env["OPENAI_API_KEY"];
-  if (!apiKey) throw new Error("OPENAI_API_KEY is not configured");
-
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      temperature: 0.2,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userText },
-      ],
-    }),
-  });
-
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(`OpenAI ${res.status}: ${detail.slice(0, 300)}`);
+  const config = getAIConfig();
+  if (!config.configured || !config.provider) {
+    throw new Error("AI provider is not configured (missing OpenRouter, Anthropic, or OpenAI API key)");
   }
 
-  const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  const content = data.choices?.[0]?.message?.content;
+  let content: string | undefined;
+
+  if (config.provider === "openrouter") {
+    const apiKey =
+      process.env["OPENROUTER_API_KEY"] ||
+      process.env["CLAUDE_API_KEY"] ||
+      process.env["ANTHROPIC_API_KEY"];
+    if (!apiKey) throw new Error("OpenRouter API key is missing");
+
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "HTTP-Referer": "https://english-angel-bot.lovable.app",
+        "X-Title": "Talk'n'Bit English Correction",
+      },
+      body: JSON.stringify({
+        model: config.model,
+        temperature: 0.2,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userText },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const detail = await res.text();
+      throw new Error(`OpenRouter (${config.model}) ${res.status}: ${detail.slice(0, 300)}`);
+    }
+
+    const data = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    content = data.choices?.[0]?.message?.content;
+  } else if (config.provider === "anthropic") {
+    const apiKey = process.env["ANTHROPIC_API_KEY"] || process.env["CLAUDE_API_KEY"];
+    if (!apiKey) throw new Error("Anthropic API key is missing");
+
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: config.model,
+        max_tokens: 1000,
+        temperature: 0.2,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userText }],
+      }),
+    });
+
+    if (!res.ok) {
+      const detail = await res.text();
+      throw new Error(`Anthropic ${res.status}: ${detail.slice(0, 300)}`);
+    }
+
+    const data = (await res.json()) as {
+      content?: Array<{ type: string; text?: string }>;
+    };
+    content = data.content?.find((c) => c.type === "text")?.text;
+  } else if (config.provider === "openai") {
+    const apiKey = process.env["OPENAI_API_KEY"];
+    if (!apiKey) throw new Error("OPENAI_API_KEY is not configured");
+
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: config.model,
+        temperature: 0.2,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userText },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const detail = await res.text();
+      throw new Error(`OpenAI ${res.status}: ${detail.slice(0, 300)}`);
+    }
+
+    const data = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    content = data.choices?.[0]?.message?.content;
+  }
+
   if (!content) return null;
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(content);
+    const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    const textToParse = fenceMatch ? fenceMatch[1].trim() : content.trim();
+    parsed = JSON.parse(textToParse);
   } catch {
     return null;
   }
+
   const obj = parsed as Partial<CorrectionResult>;
   if (typeof obj?.has_error !== "boolean") return null;
 
-  const reply = typeof obj.reply === "string" ? obj.reply.trim() : "";
-  if (obj.has_error && !reply) return null;
+  let reply = typeof obj.reply === "string" ? obj.reply.trim() : "";
+  const corrected = typeof obj.corrected_text === "string" ? obj.corrected_text.trim() : "";
+  const explanation = typeof obj.explanation === "string" ? obj.explanation.trim() : "";
+
+  // If error was detected but reply was left blank, synthesize a friendly fallback reply
+  if (obj.has_error && !reply) {
+    if (corrected && explanation) {
+      reply = `${corrected} (${explanation})`;
+    } else if (corrected) {
+      reply = corrected;
+    } else if (explanation) {
+      reply = explanation;
+    } else {
+      return null;
+    }
+  }
 
   return {
     has_error: obj.has_error,
-    corrected_text: typeof obj.corrected_text === "string" ? obj.corrected_text : "",
-    explanation: typeof obj.explanation === "string" ? obj.explanation : "",
+    corrected_text: corrected,
+    explanation,
     reply: reply.slice(0, 1000),
   };
 }
