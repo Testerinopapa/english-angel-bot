@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { assertAdmin, buildSettingsPatch, settingsUpdateSchema } from "@/lib/admin.server";
+import { settingsUpdateSchema } from "@/lib/admin-schema";
+import { assertAdmin, buildSettingsPatch } from "@/lib/admin.server";
 
 export const getDashboard = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

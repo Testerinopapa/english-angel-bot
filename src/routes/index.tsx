@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { getDashboard, updateSettings } from "@/lib/admin.functions";
-import type { SettingsUpdate } from "@/lib/admin.server";
+import type { SettingsUpdate } from "@/lib/admin-schema";
 import { webhookUrl } from "@/lib/webhook-url";
 
 export const Route = createFileRoute("/")({
