@@ -129,6 +129,23 @@ function RootComponent() {
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
       <Toaster />
+      <Footer />
     </QueryClientProvider>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="border-t border-border/60 bg-background py-6">
+      <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-2 px-5 text-xs text-muted-foreground sm:flex-row">
+        <span>English Buddy Bot</span>
+        <Link
+          to="/privacy"
+          className="underline underline-offset-4 transition-colors hover:text-foreground"
+        >
+          Privacy Policy
+        </Link>
+      </div>
+    </footer>
   );
 }
