@@ -82,7 +82,7 @@ function PrivacyPage() {
               API.
             </li>
             <li>
-              <strong>AI processing providers (Anthropic / OpenRouter / OpenAI)</strong> — to
+              <strong>AI processing providers (Anthropic / OpenRouter)</strong> — to
               analyze messages and generate English language corrections. Message content may be
               sent to these providers solely for processing corrections.
             </li>

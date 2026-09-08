@@ -31,7 +31,7 @@ export function metaConfigStatus() {
 }
 
 export type AIConfig = {
-  provider: "openrouter" | "anthropic" | "openai" | null;
+  provider: "openrouter" | "anthropic" | null;
   model: string;
   configured: boolean;
   label: string;
@@ -40,7 +40,6 @@ export type AIConfig = {
 export function getAIConfig(): AIConfig {
   const openRouterKey = process.env["OPENROUTER_API_KEY"] || process.env["CLAUDE_API_KEY"];
   const anthropicKey = process.env["ANTHROPIC_API_KEY"];
-  const openAiKey = process.env["OPENAI_API_KEY"];
 
   // OpenRouter key or Anthropic key that uses OpenRouter prefix
   if (openRouterKey || (anthropicKey && anthropicKey.startsWith("sk-or-v1-"))) {
@@ -64,17 +63,6 @@ export function getAIConfig(): AIConfig {
     };
   }
 
-  // Fallback to OpenAI
-  if (openAiKey) {
-    const model = process.env["OPENAI_MODEL"] || process.env["AI_MODEL"] || "gpt-4o-mini";
-    return {
-      provider: "openai",
-      model,
-      configured: true,
-      label: `OpenAI (${model})`,
-    };
-  }
-
   return {
     provider: null,
     model: "none",
@@ -85,10 +73,6 @@ export function getAIConfig(): AIConfig {
 
 export function aiConfigStatus(): AIConfig {
   return getAIConfig();
-}
-
-export function openAiConfigured(): boolean {
-  return getAIConfig().configured;
 }
 
 /** Keep only the last 4 digits of a phone identifier: 55•••••1234 */
@@ -181,7 +165,7 @@ export async function requestCorrection(
 ): Promise<CorrectionResult | null> {
   const config = getAIConfig();
   if (!config.configured || !config.provider) {
-    throw new Error("AI provider is not configured (missing OpenRouter, Anthropic, or OpenAI API key)");
+    throw new Error("AI provider is not configured (missing OPENROUTER_API_KEY or ANTHROPIC_API_KEY)");
   }
 
   let content: string | undefined;
@@ -250,36 +234,6 @@ export async function requestCorrection(
       content?: Array<{ type: string; text?: string }>;
     };
     content = data.content?.find((c) => c.type === "text")?.text;
-  } else if (config.provider === "openai") {
-    const apiKey = process.env["OPENAI_API_KEY"];
-    if (!apiKey) throw new Error("OPENAI_API_KEY is not configured");
-
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: config.model,
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userText },
-        ],
-      }),
-    });
-
-    if (!res.ok) {
-      const detail = await res.text();
-      throw new Error(`OpenAI ${res.status}: ${detail.slice(0, 300)}`);
-    }
-
-    const data = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    content = data.choices?.[0]?.message?.content;
   }
 
   if (!content) return null;
