@@ -10,7 +10,9 @@ export const getDashboard = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     await assertAdmin(supabase, userId);
 
-    const { metaConfigStatus, openAiConfigured } = await import("@/lib/talknbit.server");
+    const { metaConfigStatus, openAiConfigured, aiConfigStatus } = await import(
+      "@/lib/talknbit.server"
+    );
 
     const { data: settings } = await supabase
       .from("app_settings")
@@ -32,10 +34,13 @@ export const getDashboard = createServerFn({ method: "GET" })
       return count ?? 0;
     };
 
+    const aiStatus = aiConfigStatus();
+
     return {
       settings: settings ?? null,
       meta: metaConfigStatus(),
       openai: { configured: openAiConfigured() },
+      ai: aiStatus,
       stats: {
         total: await counts(),
         corrected: await counts("corrected"),
