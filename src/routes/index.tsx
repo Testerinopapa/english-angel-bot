@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { getDashboard, updateSettings } from "@/lib/admin.functions";
+import type { SettingsUpdate } from "@/lib/admin.server";
 import { webhookUrl } from "@/lib/webhook-url";
 
 export const Route = createFileRoute("/")({
@@ -79,8 +80,7 @@ function Dashboard({ email }: { email: string }) {
   });
 
   const mutation = useMutation({
-    mutationFn: (input: Parameters<typeof saveSettings>[0]["data"]) =>
-      saveSettings({ data: input }),
+    mutationFn: (input: SettingsUpdate) => saveSettings({ data: input }),
     onSuccess: () => {
       toast.success("Saved");
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
@@ -300,7 +300,7 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: "ba
   );
 }
 
-function ConfigRow({ label, ok, optional }: { label: string; ok?: boolean; optional?: boolean }) {
+function ConfigRow({ label, ok, optional }: { label: string; ok?: boolean | undefined; optional?: boolean | undefined }) {
   return (
     <li className="flex items-center justify-between gap-3">
       <span className="text-muted-foreground">{label}</span>
