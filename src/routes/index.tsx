@@ -111,7 +111,7 @@ function Dashboard({ email }: { email: string }) {
   const botOn = data?.settings?.bot_enabled ?? false;
   const metaReady = meta?.ready ?? false;
   const ai = data?.ai;
-  const aiReady = ai?.configured ?? data?.openai.configured ?? false;
+  const aiReady = ai?.configured ?? false;
   const aiLabel = ai?.label ?? (aiReady ? "Configured" : "Not configured");
 
   return (
