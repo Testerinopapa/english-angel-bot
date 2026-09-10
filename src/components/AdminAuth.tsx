@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable/index";
 
 export function AdminAuth() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -17,15 +18,34 @@ export function AdminAuth() {
   const handleGoogleSignIn = async () => {
     setBusy(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/admin`,
-        },
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: `${window.location.origin}/admin`,
       });
-      if (error) throw error;
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to sign in with Google");
+      if (result.redirected) return;
+      if (result.error) {
+        // Fallback to direct Supabase OAuth if Lovable Cloud Auth is not active
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: `${window.location.origin}/admin`,
+          },
+        });
+        if (error) throw error;
+        return;
+      }
+    } catch {
+      try {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: `${window.location.origin}/admin`,
+          },
+        });
+        if (error) throw error;
+      } catch (fallbackError) {
+        toast.error(fallbackError instanceof Error ? fallbackError.message : "Failed to sign in with Google");
+      }
+    } finally {
       setBusy(false);
     }
   };
