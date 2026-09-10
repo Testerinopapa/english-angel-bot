@@ -109,15 +109,28 @@ export async function verifyMetaSignature(rawBody: string, header: string | null
 }
 
 export type IncomingTextMessage = {
+  type: "text";
   waMessageId: string;
   from: string;
   text: string;
   timestamp: string | null;
 };
 
-/** Extract normal incoming text messages; everything else is ignored. */
-export function parseIncomingTextMessages(payload: unknown): IncomingTextMessage[] {
-  const out: IncomingTextMessage[] = [];
+export type IncomingInteractiveMessage = {
+  type: "interactive";
+  waMessageId: string;
+  from: string;
+  buttonId: string;
+  buttonTitle: string;
+  contextMessageId: string | null;
+  timestamp: string | null;
+};
+
+export type IncomingWhatsAppMessage = IncomingTextMessage | IncomingInteractiveMessage;
+
+/** Extract incoming messages (text and button replies). */
+export function parseIncomingMessages(payload: unknown): IncomingWhatsAppMessage[] {
+  const out: IncomingWhatsAppMessage[] = [];
   const body = payload as {
     object?: string;
     entry?: Array<{ changes?: Array<{ field?: string; value?: Record<string, unknown> }> }>;
@@ -133,22 +146,59 @@ export function parseIncomingTextMessages(payload: unknown): IncomingTextMessage
       if (!value || !Array.isArray(value.messages)) continue; // status callbacks etc.
 
       for (const msg of value.messages) {
-        if (msg["type"] !== "text") continue;
-        const textObj = msg["text"] as { body?: string } | undefined;
-        const text = typeof textObj?.body === "string" ? textObj.body.trim() : "";
         const id = typeof msg["id"] === "string" ? msg["id"] : "";
         const from = typeof msg["from"] === "string" ? msg["from"] : "";
-        if (!text || !id || !from) continue;
+        if (!id || !from) continue;
+
         const tsRaw = msg["timestamp"];
         const ts =
           typeof tsRaw === "string" || typeof tsRaw === "number"
             ? new Date(Number(tsRaw) * 1000).toISOString()
             : null;
-        out.push({ waMessageId: id, from, text, timestamp: ts });
+
+        const msgType = msg["type"];
+
+        if (msgType === "text") {
+          const textObj = msg["text"] as { body?: string } | undefined;
+          const text = typeof textObj?.body === "string" ? textObj.body.trim() : "";
+          if (!text) continue;
+          out.push({ type: "text", waMessageId: id, from, text, timestamp: ts });
+        } else if (msgType === "interactive") {
+          const interactive = msg["interactive"] as
+            | {
+                type?: string;
+                button_reply?: { id?: string; title?: string };
+              }
+            | undefined;
+          if (interactive?.type === "button_reply" && interactive.button_reply) {
+            const buttonId =
+              typeof interactive.button_reply.id === "string" ? interactive.button_reply.id : "";
+            const buttonTitle =
+              typeof interactive.button_reply.title === "string" ? interactive.button_reply.title : "";
+            const context = msg["context"] as { id?: string } | undefined;
+            const contextMessageId = typeof context?.id === "string" ? context.id : null;
+            if (buttonId) {
+              out.push({
+                type: "interactive",
+                waMessageId: id,
+                from,
+                buttonId,
+                buttonTitle,
+                contextMessageId,
+                timestamp: ts,
+              });
+            }
+          }
+        }
       }
     }
   }
   return out;
+}
+
+/** Backward-compatible helper to extract only text messages. */
+export function parseIncomingTextMessages(payload: unknown): IncomingTextMessage[] {
+  return parseIncomingMessages(payload).filter((m): m is IncomingTextMessage => m.type === "text");
 }
 
 export type CorrectionResult = {
@@ -303,3 +353,102 @@ export async function sendWhatsAppText(to: string, text: string): Promise<void> 
     throw new Error(`Meta send failed ${res.status}: ${detail.slice(0, 300)}`);
   }
 }
+
+/**
+ * Send an interactive quick-reply button message via Meta Graph API.
+ * Gracefully falls back to plain text if interactive message delivery fails.
+ */
+export async function sendWhatsAppInteractiveButton(
+  to: string,
+  bodyText: string,
+  buttonId: string,
+  buttonTitle: string = "Why? 💡",
+  footerText?: string,
+): Promise<void> {
+  const { accessToken, phoneNumberId } = readMetaConfig();
+  if (!accessToken || !phoneNumberId) {
+    throw new Error("WhatsApp is not configured (missing access token or phone number id)");
+  }
+
+  // Meta restrictions:
+  // reply.title: max 20 chars
+  // reply.id: max 256 chars
+  // body.text: max 1024 chars
+  const title = buttonTitle.slice(0, 20);
+  const id = buttonId.slice(0, 256);
+  const text = bodyText.slice(0, 1024);
+
+  const interactivePayload: Record<string, unknown> = {
+    type: "button",
+    body: { text },
+    action: {
+      buttons: [
+        {
+          type: "reply",
+          reply: {
+            id,
+            title,
+          },
+        },
+      ],
+    },
+  };
+
+  if (footerText) {
+    interactivePayload["footer"] = { text: footerText.slice(0, 60) };
+  }
+
+  try {
+    const res = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to,
+        type: "interactive",
+        interactive: interactivePayload,
+      }),
+    });
+
+    if (!res.ok) {
+      const detail = await res.text();
+      console.warn(
+        `Meta interactive message send failed ${res.status}: ${detail.slice(0, 300)}. Falling back to plain text.`,
+      );
+      await sendWhatsAppText(to, text);
+    }
+  } catch (err) {
+    console.warn("Interactive send threw an error, falling back to plain text:", err);
+    await sendWhatsAppText(to, text);
+  }
+}
+
+/**
+ * Format a rich WhatsApp Grammar Explanation Card using WhatsApp Markdown formatting.
+ */
+export function formatExplanationCard(
+  originalText: string,
+  correctedText: string,
+  explanation: string,
+): string {
+  const lines: string[] = ["*💡 Grammar Breakdown*", ""];
+
+  if (originalText) {
+    lines.push(`❌ *Original:* ~${originalText}~`);
+  }
+  if (correctedText) {
+    lines.push(`✅ *Correction:* *${correctedText}*`);
+  }
+  if (explanation) {
+    lines.push("", "*📖 Rule:*", explanation);
+  }
+
+  lines.push("", "_Keep practicing! You're doing great._ 🌟");
+
+  return lines.join("\n");
+}
+
