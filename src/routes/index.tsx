@@ -41,6 +41,9 @@ export const Route = createFileRoute("/")({
 const statusLabels: Record<string, { label: string; tone: "ok" | "warn" | "bad" | "idle" }> = {
   corrected: { label: "Correction sent", tone: "ok" },
   corrected_group_dm: { label: "Group Private DM", tone: "ok" },
+  relay_corrected: { label: "Relayed + Private DM", tone: "ok" },
+  relay_ok: { label: "Relayed (Clean)", tone: "idle" },
+  room_command: { label: "Room command", tone: "idle" },
   explanation_sent: { label: "Explanation sent", tone: "ok" },
   no_error: { label: "No mistake", tone: "idle" },
   skipped_disabled: { label: "Bot off", tone: "warn" },
@@ -208,17 +211,26 @@ function Dashboard({ email }: { email: string }) {
           <div className="panel p-6">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold">Group Secret-Watcher Mode</h2>
+                <h2 className="text-lg font-semibold">Study Buddy Practice Rooms (Secret-Watcher Mode)</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Two or more students chatting normally in a WhatsApp study group. The bot secretly watches and sends
-                  corrections privately via 1-on-1 DM, keeping the group conversation uninterrupted.
+                  Two students chat directly with each other through the bot. The bot secretly evaluates grammar,
+                  forwards messages to the partner, and privately whispers corrections and <strong>[ Why? 💡 ]</strong> explanation cards.
                 </p>
               </div>
               <StatusPill tone="ok">Active</StatusPill>
             </div>
+            <div className="mt-4 rounded-lg bg-muted/40 p-4 text-xs">
+              <p className="font-semibold text-foreground">How students connect:</p>
+              <ul className="mt-2 space-y-1 text-muted-foreground">
+                <li>• Student A texts: <code className="text-primary font-mono font-bold">/join 101</code> (or any room name/code)</li>
+                <li>• Student B texts: <code className="text-primary font-mono font-bold">/join 101</code></li>
+                <li>• Both students are instantly paired! Messages are relayed in real-time, and mistakes are corrected privately.</li>
+                <li>• Either student can text <code className="text-primary font-mono font-bold">/leave</code> anytime to exit.</li>
+              </ul>
+            </div>
             <div className="mt-4 flex flex-wrap items-center gap-4 text-xs">
               <span className="rounded bg-primary/10 px-2.5 py-1 font-mono font-medium text-primary">
-                Group Private DMs: {data?.stats.groupCorrections ?? 0}
+                Group / Room Private DMs: {data?.stats.groupCorrections ?? 0}
               </span>
             </div>
           </div>
