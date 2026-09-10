@@ -119,7 +119,7 @@ export async function joinPracticeRoom(
 
         return {
           success: true,
-          message: Room # created!,
+          message: `Room #${code} created!`,
           isNew: true,
           roomCode: code,
         };
@@ -146,7 +146,7 @@ export async function joinPracticeRoom(
   }
 
   const newSession: RoomSession = {
-    id: mem_,
+    id: `mem_${code}`,
     code,
     participant1: phone,
     participant2: null,
@@ -158,7 +158,7 @@ export async function joinPracticeRoom(
 
   return {
     success: true,
-    message: Room # created!,
+    message: `Room #${code} created!`,
     isNew: true,
     roomCode: code,
   };
@@ -254,7 +254,7 @@ export async function leavePracticeRoom(
       const { data: activeRooms } = await (admin as any)
         .from("practice_rooms")
         .select("id, room_code, participant_1, participant_2")
-        .or(participant_1.eq.,participant_2.eq.)
+        .or(`participant_1.eq.${phone},participant_2.eq.${phone}`)
         .in("status", ["waiting", "active"]);
 
       if (activeRooms && activeRooms.length > 0) {
@@ -275,7 +275,11 @@ export async function leavePracticeRoom(
     }
   }
 
-  return { left: Boolean(roomCode), partnerPhone, roomCode };
+  return {
+    left: Boolean(roomCode),
+    ...(partnerPhone ? { partnerPhone } : {}),
+    ...(roomCode ? { roomCode } : {}),
+  };
 }
 
 /**
@@ -289,7 +293,7 @@ export async function getRoomStatus(
     return {
       inRoom: true,
       waiting: false,
-      roomCode: partner.roomCode,
+      ...(partner.roomCode ? { roomCode: partner.roomCode } : {}),
       partnerMasked: maskSender(partner.partnerPhone),
     };
   }
