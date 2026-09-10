@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -102,11 +102,19 @@ function Dashboard({ email }: { email: string }) {
         <div className="panel max-w-md p-8">
           <h1 className="text-xl font-semibold">No admin access</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            This account is not an administrator of Talk&apos;n&apos;Bit.
+            Account {email ? `(${email})` : ""} is not an administrator of Talk&apos;n&apos;Bit.
           </p>
-          <Button className="mt-6" variant="secondary" onClick={() => supabase.auth.signOut()}>
-            Sign out
-          </Button>
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <Button variant="secondary" onClick={() => supabase.auth.signOut()}>
+              Sign out
+            </Button>
+            <Link
+              to="/"
+              className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
+            >
+              Go to Home
+            </Link>
+          </div>
         </div>
       </main>
     );
@@ -123,6 +131,14 @@ function Dashboard({ email }: { email: string }) {
     <main className="mx-auto min-h-screen w-full max-w-5xl px-5 py-10">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Link
+              to="/"
+              className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
+            >
+              ← Back to Site
+            </Link>
+          </div>
           <h1 className="text-3xl font-semibold">Talk&apos;n&apos;Bit</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             WhatsApp English correction bot · {email}

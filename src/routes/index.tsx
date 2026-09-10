@@ -7,6 +7,7 @@ import {
   MessageCircle,
   Sparkles,
   ArrowRight,
+  ShieldCheck,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -98,7 +99,15 @@ function LandingPage() {
             </a>
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <Link
+              to="/admin"
+              className="inline-flex items-center gap-1.5 rounded-full border border-purple-900/20 bg-purple-50/80 px-4 py-2 text-xs font-semibold text-[#1e0a45] transition-all hover:bg-purple-100 hover:border-purple-900/40 hover:scale-105"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-purple-700" />
+              <span>Admin</span>
+            </Link>
+
             <a
               href={WHATSAPP_URL}
               target="_blank"
@@ -106,7 +115,8 @@ function LandingPage() {
               className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#240b4a] to-[#170535] px-5 py-2.5 text-xs font-semibold text-white shadow-md shadow-purple-950/20 transition-all hover:scale-105 hover:shadow-purple-900/40"
             >
               <MessageCircle className="w-4 h-4 text-[#25D366]" />
-              <span>Chat on WhatsApp</span>
+              <span className="hidden sm:inline">Chat on WhatsApp</span>
+              <span className="sm:hidden">WhatsApp</span>
             </a>
           </div>
         </div>
