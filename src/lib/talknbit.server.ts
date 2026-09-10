@@ -114,6 +114,7 @@ export type IncomingTextMessage = {
   from: string;
   text: string;
   timestamp: string | null;
+  groupId: string | null;
 };
 
 export type IncomingInteractiveMessage = {
@@ -124,11 +125,12 @@ export type IncomingInteractiveMessage = {
   buttonTitle: string;
   contextMessageId: string | null;
   timestamp: string | null;
+  groupId: string | null;
 };
 
 export type IncomingWhatsAppMessage = IncomingTextMessage | IncomingInteractiveMessage;
 
-/** Extract incoming messages (text and button replies). */
+/** Extract incoming messages (text and button replies) including group identifiers. */
 export function parseIncomingMessages(payload: unknown): IncomingWhatsAppMessage[] {
   const out: IncomingWhatsAppMessage[] = [];
   const body = payload as {
@@ -156,13 +158,21 @@ export function parseIncomingMessages(payload: unknown): IncomingWhatsAppMessage
             ? new Date(Number(tsRaw) * 1000).toISOString()
             : null;
 
+        const groupId =
+          typeof msg["group_id"] === "string"
+            ? msg["group_id"]
+            : typeof (msg as Record<string, unknown>)["chat_id"] === "string" &&
+                ((msg as Record<string, unknown>)["chat_id"] as string).endsWith("@g.us")
+              ? ((msg as Record<string, unknown>)["chat_id"] as string)
+              : null;
+
         const msgType = msg["type"];
 
         if (msgType === "text") {
           const textObj = msg["text"] as { body?: string } | undefined;
           const text = typeof textObj?.body === "string" ? textObj.body.trim() : "";
           if (!text) continue;
-          out.push({ type: "text", waMessageId: id, from, text, timestamp: ts });
+          out.push({ type: "text", waMessageId: id, from, text, timestamp: ts, groupId });
         } else if (msgType === "interactive") {
           const interactive = msg["interactive"] as
             | {
@@ -186,6 +196,7 @@ export function parseIncomingMessages(payload: unknown): IncomingWhatsAppMessage
                 buttonTitle,
                 contextMessageId,
                 timestamp: ts,
+                groupId,
               });
             }
           }
@@ -451,4 +462,109 @@ export function formatExplanationCard(
 
   return lines.join("\n");
 }
+
+/**
+ * Format a private correction message when a student made a mistake in a group chat vs direct chat.
+ */
+export function formatPrivateCorrection(
+  originalText: string,
+  reply: string,
+  isGroup: boolean,
+): string {
+  if (!isGroup) {
+    return reply;
+  }
+
+  // In group chats, make it obvious which message this private DM refers to,
+  // while keeping it brief and friendly.
+  const shortOriginal = originalText.length > 60 ? `${originalText.slice(0, 57)}...` : originalText;
+  return `💬 *In group chat:*\n~${shortOriginal}~\n\n👉 *Better:* ${reply}`;
+}
+
+/**
+ * Create a WhatsApp Study Group via Meta Cloud API.
+ * Requires Official Business Account (OBA) status from Meta.
+ */
+export async function createWhatsAppGroup(
+  subject: string,
+  description?: string,
+): Promise<{ groupId: string; inviteCode?: string; inviteLink?: string }> {
+  const { accessToken, phoneNumberId } = readMetaConfig();
+  if (!accessToken || !phoneNumberId) {
+    throw new Error("WhatsApp is not configured (missing access token or phone number id)");
+  }
+
+  const payload: Record<string, unknown> = {
+    messaging_product: "whatsapp",
+    subject: subject.slice(0, 100),
+  };
+  if (description) {
+    payload["description"] = description.slice(0, 255);
+  }
+
+  const res = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/groups`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`Failed to create WhatsApp group (${res.status}): ${detail.slice(0, 300)}`);
+  }
+
+  const data = (await res.json()) as { id: string };
+  const groupId = data.id;
+
+  let inviteCode: string | undefined;
+  let inviteLink: string | undefined;
+
+  try {
+    const inviteRes = await fetch(`https://graph.facebook.com/v21.0/${groupId}/invite_code`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (inviteRes.ok) {
+      const inviteData = (await inviteRes.json()) as { invite_code: string };
+      inviteCode = inviteData.invite_code;
+      inviteLink = `https://chat.whatsapp.com/${inviteCode}`;
+    }
+  } catch {
+    // If fetching invite link fails right away, return groupId
+  }
+
+  return { groupId, inviteCode, inviteLink };
+}
+
+/**
+ * Get the invite link for an existing WhatsApp group.
+ */
+export async function getWhatsAppGroupInvite(
+  groupId: string,
+): Promise<{ inviteCode: string; inviteLink: string }> {
+  const { accessToken } = readMetaConfig();
+  if (!accessToken) {
+    throw new Error("WhatsApp access token is not configured");
+  }
+
+  const res = await fetch(`https://graph.facebook.com/v21.0/${groupId}/invite_code`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`Failed to get group invite code (${res.status}): ${detail.slice(0, 300)}`);
+  }
+
+  const data = (await res.json()) as { invite_code: string };
+  return {
+    inviteCode: data.invite_code,
+    inviteLink: `https://chat.whatsapp.com/${data.invite_code}`,
+  };
+}
+
 

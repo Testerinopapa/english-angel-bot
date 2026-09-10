@@ -40,7 +40,8 @@ export const getDashboard = createServerFn({ method: "GET" })
       ai: aiStatus,
       stats: {
         total: await counts(),
-        corrected: await counts("corrected"),
+        corrected: (await counts("corrected")) + (await counts("corrected_group_dm")),
+        groupCorrections: await counts("corrected_group_dm"),
         noError: await counts("no_error"),
         failed: await counts("failed"),
       },
@@ -62,3 +63,21 @@ export const updateSettings = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export const createStudyGroup = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => {
+    const obj = input as { subject?: string; description?: string } | undefined;
+    return {
+      subject: typeof obj?.subject === "string" && obj.subject.trim() ? obj.subject.trim() : "Talk'n'Bit Practice Room",
+      description: typeof obj?.description === "string" ? obj.description.trim() : undefined,
+    };
+  })
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+
+    const { createWhatsAppGroup } = await import("@/lib/talknbit.server");
+    return await createWhatsAppGroup(data.subject, data.description);
+  });
+
