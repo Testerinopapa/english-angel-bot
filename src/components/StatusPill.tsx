@@ -3,10 +3,10 @@ import { cn } from "@/lib/utils";
 type Tone = "ok" | "warn" | "bad" | "idle";
 
 const tones: Record<Tone, string> = {
-  ok: "bg-primary/15 text-primary border-primary/30",
-  warn: "bg-chart-3/15 text-chart-3 border-chart-3/30",
-  bad: "bg-destructive/15 text-destructive border-destructive/30",
-  idle: "bg-muted text-muted-foreground border-border",
+  ok: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  warn: "bg-amber-50 text-amber-700 border-amber-200",
+  bad: "bg-rose-50 text-rose-700 border-rose-200",
+  idle: "bg-purple-50 text-purple-900/70 border-purple-100",
 };
 
 export function StatusPill({
