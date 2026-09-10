@@ -275,7 +275,11 @@ export async function leavePracticeRoom(
     }
   }
 
-  return { left: Boolean(roomCode), partnerPhone, roomCode };
+  return {
+    left: Boolean(roomCode),
+    ...(partnerPhone ? { partnerPhone } : {}),
+    ...(roomCode ? { roomCode } : {}),
+  };
 }
 
 /**
@@ -289,7 +293,7 @@ export async function getRoomStatus(
     return {
       inRoom: true,
       waiting: false,
-      roomCode: partner.roomCode,
+      ...(partner.roomCode ? { roomCode: partner.roomCode } : {}),
       partnerMasked: maskSender(partner.partnerPhone),
     };
   }

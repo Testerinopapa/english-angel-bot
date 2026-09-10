@@ -302,7 +302,7 @@ export async function requestCorrection(
   let parsed: unknown;
   try {
     const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    const textToParse = fenceMatch ? fenceMatch[1].trim() : content.trim();
+    const textToParse = fenceMatch?.[1] ? fenceMatch[1].trim() : content.trim();
     parsed = JSON.parse(textToParse);
   } catch {
     return null;
@@ -536,7 +536,11 @@ export async function createWhatsAppGroup(
     // If fetching invite link fails right away, return groupId
   }
 
-  return { groupId, inviteCode, inviteLink };
+  return {
+    groupId,
+    ...(inviteCode ? { inviteCode } : {}),
+    ...(inviteLink ? { inviteLink } : {}),
+  };
 }
 
 /**
