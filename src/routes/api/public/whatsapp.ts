@@ -1,6 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import {
+  getPartnerPhone,
+  getRoomStatus,
+  joinPracticeRoom,
+  leavePracticeRoom,
+} from "@/lib/rooms.server";
+import {
   formatExplanationCard,
   formatPrivateCorrection,
   maskSender,
@@ -39,6 +45,75 @@ async function processTextMessage(msg: IncomingTextMessage) {
       .eq("wa_message_id", msg.waMessageId);
   };
 
+  // --- Study Buddy Room Commands ---
+  const trimmed = msg.text.trim();
+
+  // /join <code> or /pair <code> or /room <code>
+  const joinMatch = trimmed.match(/^\/(?:join|pair|room)\s*([A-Za-z0-9_-]+)?$/i);
+  if (joinMatch) {
+    const code = joinMatch[1] || "101";
+    const res = await joinPracticeRoom(msg.from, code);
+    if (res.isNew) {
+      await sendWhatsAppText(
+        msg.from,
+        `⏳ *Practice Room #${res.roomCode} created!*\n\nShare this code with your study partner. When they message this bot:\n👉 */join ${res.roomCode}*\n\nyou will be automatically connected!`,
+      );
+    } else if (res.partnerPhone) {
+      await sendWhatsAppText(
+        msg.from,
+        `🎉 *Connected to your study partner!*\n\nStart chatting in English! Talk'n'Bit will secretly watch your grammar and privately help you.\n\n_(Text */leave* anytime to exit)_`,
+      );
+      await sendWhatsAppText(
+        res.partnerPhone,
+        `🎉 *Your study partner has joined!*\n\nSay hello to start practicing in English! Talk'n'Bit will secretly watch and guide your grammar privately.\n\n_(Text */leave* anytime to exit)_`,
+      );
+    } else {
+      await sendWhatsAppText(msg.from, res.message);
+    }
+    await finish({ status: "room_command", message_content: msg.text });
+    return;
+  }
+
+  // /leave or /exit or /quit
+  if (/^\/(?:leave|exit|quit)$/i.test(trimmed)) {
+    const res = await leavePracticeRoom(msg.from);
+    await sendWhatsAppText(
+      msg.from,
+      `👋 You left the practice room. Your messages are now in 1-on-1 mode with Talk'n'Bit.`,
+    );
+    if (res.partnerPhone) {
+      await sendWhatsAppText(
+        res.partnerPhone,
+        `👋 Your study partner has left the room. Practice session ended.`,
+      );
+    }
+    await finish({ status: "room_command", message_content: msg.text });
+    return;
+  }
+
+  // /status or /info
+  if (/^\/(?:status|info)$/i.test(trimmed)) {
+    const st = await getRoomStatus(msg.from);
+    if (st.inRoom) {
+      await sendWhatsAppText(
+        msg.from,
+        `👥 *Practice Room Status:*\nYou are connected in Room *#${st.roomCode}* with partner *${st.partnerMasked}*.\n\nEverything you say is forwarded to your partner while Talk'n'Bit secretly helps with grammar.\nText */leave* to exit.`,
+      );
+    } else if (st.waiting) {
+      await sendWhatsAppText(
+        msg.from,
+        `⏳ *Waiting for partner in Room #${st.roomCode}*.\nAsk your friend to text: */join ${st.roomCode}*`,
+      );
+    } else {
+      await sendWhatsAppText(
+        msg.from,
+        `🤖 *1-on-1 Mode with Talk'n'Bit*\n\nTo practice with a partner while the bot secretly watches, text:\n👉 */join <room_code>* (e.g. */join 101*)`,
+      );
+    }
+    await finish({ status: "room_command", message_content: msg.text });
+    return;
+  }
+
   const { data: settingsRow } = await supabaseAdmin
     .from("app_settings")
     .select("bot_enabled, store_message_content, system_prompt")
@@ -51,6 +126,56 @@ async function processTextMessage(msg: IncomingTextMessage) {
     return;
   }
 
+  // --- Study Buddy Active Room Secret-Watcher Relay ---
+  const partnerInfo = await getPartnerPhone(msg.from);
+  if (partnerInfo.inRoom && partnerInfo.partnerPhone) {
+    let correctionResult = null;
+    if (settings.bot_enabled) {
+      try {
+        correctionResult = await requestCorrection(settings.system_prompt, msg.text);
+      } catch (err) {
+        console.warn("AI error during room relay:", err);
+      }
+    }
+
+    // Secret whisper to author if error detected
+    if (correctionResult && correctionResult.has_error) {
+      const whisper = `💬 *In room #${partnerInfo.roomCode}:*\n~${msg.text}~\n\n👉 *Better:* ${correctionResult.reply}`;
+      await sendWhatsAppInteractiveButton(
+        msg.from,
+        whisper,
+        `why_${msg.waMessageId}`,
+        "Why? 💡",
+      );
+    }
+
+    // Seamlessly forward message to partner (partner NEVER sees corrections!)
+    await sendWhatsAppText(
+      partnerInfo.partnerPhone,
+      `💬 *Partner:* ${msg.text}`,
+    );
+
+    const detail = JSON.stringify({
+      original_text: msg.text,
+      corrected_text: correctionResult?.corrected_text ?? null,
+      explanation: correctionResult?.explanation ?? null,
+      reply: correctionResult?.reply ?? null,
+      is_room_relay: true,
+      room_code: partnerInfo.roomCode,
+      partner_masked: maskSender(partnerInfo.partnerPhone),
+    });
+
+    await finish({
+      status: correctionResult?.has_error ? "relay_corrected" : "relay_ok",
+      has_error: correctionResult?.has_error ?? false,
+      correction_sent: Boolean(correctionResult?.has_error),
+      message_content: settings.store_message_content ? `[Room #${partnerInfo.roomCode}] ${msg.text.slice(0, 950)}` : null,
+      error_detail: detail,
+    });
+    return;
+  }
+
+  // --- Regular 1-on-1 or Group Fallback Mode ---
   const isGroup = Boolean(msg.groupId);
   const rawContent = settings.store_message_content ? msg.text.slice(0, 950) : null;
   const content = rawContent ? (isGroup ? `[Group] ${rawContent}` : rawContent) : null;
