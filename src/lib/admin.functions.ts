@@ -21,10 +21,10 @@ export const getDashboard = createServerFn({ method: "GET" })
     const { data: events } = await supabase
       .from("message_events")
       .select(
-        "id, wa_message_id, sender_masked, status, has_error, correction_sent, error_detail, created_at",
+        "id, wa_message_id, sender_masked, status, has_error, correction_sent, error_detail, message_content, created_at",
       )
       .order("created_at", { ascending: false })
-      .limit(25);
+      .limit(100);
 
     const counts = async (status?: string) => {
       const query = supabase.from("message_events").select("*", { count: "exact", head: true });

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -14,13 +14,23 @@ import {
   Sparkles,
   Users,
   MessageSquare,
+  MessageCircle,
   Activity,
   Settings as SettingsIcon,
+  Search,
+  RefreshCw,
+  Eye,
+  Code,
+  Filter,
+  Layers,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 import { AdminAuth } from "@/components/AdminAuth";
 import { StatusPill } from "@/components/StatusPill";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,16 +43,16 @@ import { webhookUrl } from "@/lib/webhook-url";
 export const Route = createFileRoute("/admin")({
   head: () => ({
     meta: [
-      { title: "Talk'n'Bit — Admin Portal" },
+      { title: "Talk'n'Bit — Admin Portal & Message Monitor" },
       {
         name: "description",
         content:
-          "Internal control panel for Talk'n'Bit: bot status, WhatsApp and AI model configuration, message activity and correction prompt settings.",
+          "Internal control panel for Talk'n'Bit: read and monitor incoming WhatsApp messages, bot status, and prompt settings.",
       },
-      { property: "og:title", content: "Talk'n'Bit — Admin Portal" },
+      { property: "og:title", content: "Talk'n'Bit — Admin Portal & Message Monitor" },
       {
         property: "og:description",
-        content: "Internal control panel for the Talk'n'Bit WhatsApp English correction bot.",
+        content: "Internal control panel and WhatsApp message monitor for Talk'n'Bit.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -64,6 +74,90 @@ const statusLabels: Record<string, { label: string; tone: "ok" | "warn" | "bad" 
   failed: { label: "Failed", tone: "bad" },
   received: { label: "Received", tone: "idle" },
 };
+
+interface MessageEventRow {
+  id: string;
+  wa_message_id: string;
+  sender_masked: string | null;
+  status: string;
+  has_error: boolean | null;
+  correction_sent: boolean;
+  error_detail: string | null;
+  message_content?: string | null;
+  created_at: string;
+}
+
+function parseMessageEvent(row: MessageEventRow) {
+  let studentText = row.message_content || "";
+  let botReply: string | null = null;
+  let correctedText: string | null = null;
+  let explanation: string | null = null;
+  let isRoom = false;
+  let roomCode: string | null = null;
+  let partnerMasked: string | null = null;
+  let isGroup = false;
+
+  if (row.error_detail) {
+    try {
+      const p = JSON.parse(row.error_detail);
+      if (typeof p.original_text === "string" && p.original_text.trim()) {
+        studentText = p.original_text;
+      }
+      if (typeof p.corrected_text === "string") correctedText = p.corrected_text;
+      if (typeof p.explanation === "string") explanation = p.explanation;
+      if (typeof p.reply === "string") botReply = p.reply;
+      if (p.is_room_relay || p.room_code) {
+        isRoom = true;
+        roomCode = p.room_code ?? null;
+        partnerMasked = p.partner_masked ?? null;
+      }
+      if (p.is_group) isGroup = true;
+    } catch {
+      // plain text error detail
+    }
+  }
+
+  if (studentText.startsWith("[Room #")) {
+    isRoom = true;
+    const match = studentText.match(/^\[Room #([^\]]+)\]\s*(.*)$/);
+    if (match) {
+      roomCode = match[1];
+      studentText = match[2];
+    }
+  } else if (studentText.startsWith("[Group] ")) {
+    isGroup = true;
+    studentText = studentText.replace(/^\[Group\]\s*/, "");
+  }
+
+  if (row.status === "explanation_sent") {
+    studentText = studentText || "Tapped 'Why? 💡' button";
+    if (row.error_detail) {
+      try {
+        const p = JSON.parse(row.error_detail);
+        if (p.explanation) explanation = p.explanation;
+      } catch {}
+    }
+  }
+
+  return {
+    id: row.id,
+    waMessageId: row.wa_message_id,
+    senderMasked: row.sender_masked || "Unknown",
+    status: row.status,
+    hasError: row.has_error,
+    correctionSent: row.correction_sent,
+    createdAt: row.created_at,
+    studentText: studentText.trim(),
+    botReply,
+    correctedText,
+    explanation,
+    isRoom,
+    roomCode,
+    partnerMasked,
+    isGroup,
+    rawDetail: row.error_detail,
+  };
+}
 
 function AdminDashboard() {
   const [session, setSession] = useState<{ email?: string } | null | undefined>(undefined);
@@ -96,8 +190,15 @@ function Dashboard({ email }: { email: string }) {
   const saveSettings = useServerFn(updateSettings);
   const queryClient = useQueryClient();
   const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
 
-  const { data, isLoading, error } = useQuery({
+  // Message filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "corrected" | "clean" | "rooms" | "failed">("all");
+  const [viewMode, setViewMode] = useState<"feed" | "table">("feed");
+  const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({});
+
+  const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ["dashboard"],
     queryFn: () => fetchDashboard(),
     refetchInterval: 30_000,
@@ -121,6 +222,44 @@ function Dashboard({ email }: { email: string }) {
     toast.success("Webhook URL copied to clipboard");
     setTimeout(() => setCopiedWebhook(false), 2000);
   };
+
+  const toggleDetails = (id: string) => {
+    setExpandedDetails((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // Parsed and filtered messages
+  const parsedMessages = useMemo(() => {
+    const raw = (data?.recent ?? []) as MessageEventRow[];
+    return raw.map(parseMessageEvent);
+  }, [data?.recent]);
+
+  const filteredMessages = useMemo(() => {
+    return parsedMessages.filter((msg) => {
+      // Status filter
+      if (statusFilter === "corrected") {
+        if (!msg.status.includes("corrected") && !msg.hasError) return false;
+      } else if (statusFilter === "clean") {
+        if (msg.status !== "no_error" && msg.status !== "relay_ok") return false;
+      } else if (statusFilter === "rooms") {
+        if (!msg.isRoom && msg.status !== "room_command") return false;
+      } else if (statusFilter === "failed") {
+        if (msg.status !== "failed" && msg.status !== "skipped_disabled") return false;
+      }
+
+      // Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesText = msg.studentText.toLowerCase().includes(q);
+        const matchesSender = msg.senderMasked.toLowerCase().includes(q);
+        const matchesCorrection = (msg.botReply || msg.correctedText || "").toLowerCase().includes(q);
+        const matchesExplanation = (msg.explanation || "").toLowerCase().includes(q);
+        const matchesRoom = (msg.roomCode || "").toLowerCase().includes(q);
+        return matchesText || matchesSender || matchesCorrection || matchesExplanation || matchesRoom;
+      }
+
+      return true;
+    });
+  }, [parsedMessages, statusFilter, searchQuery]);
 
   if (error) {
     return (
@@ -245,9 +384,9 @@ function Dashboard({ email }: { email: string }) {
           </div>
         </div>
 
-        {/* Tabs */}
-        <Tabs defaultValue="overview" className="space-y-6">
-          <div className="flex justify-center sm:justify-start">
+        {/* Tabs Navigation */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <TabsList className="bg-purple-100/70 p-1 rounded-full border border-purple-200/60 gap-1 h-auto">
               <TabsTrigger
                 value="overview"
@@ -256,10 +395,13 @@ function Dashboard({ email }: { email: string }) {
                 <Activity className="w-3.5 h-3.5" /> Overview
               </TabsTrigger>
               <TabsTrigger
-                value="activity"
+                value="messages"
                 className="rounded-full px-5 py-2 text-xs font-bold data-[state=active]:bg-[#240b4a] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all text-purple-950/70 hover:text-purple-950 flex items-center gap-1.5"
               >
-                <MessageSquare className="w-3.5 h-3.5" /> Activity
+                <MessageSquare className="w-3.5 h-3.5" /> WhatsApp Messages
+                <span className="ml-1 px-1.5 py-0.2 rounded-full bg-purple-200/80 text-[10px] font-extrabold text-purple-950">
+                  {parsedMessages.length}
+                </span>
               </TabsTrigger>
               <TabsTrigger
                 value="settings"
@@ -268,6 +410,23 @@ function Dashboard({ email }: { email: string }) {
                 <SettingsIcon className="w-3.5 h-3.5" /> Settings
               </TabsTrigger>
             </TabsList>
+
+            {/* Quick action: Refresh feed */}
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 font-medium">
+                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live monitor
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full border-purple-100 bg-white text-xs h-8 px-3 gap-1.5 text-[#1e0a45] hover:bg-purple-50"
+                onClick={() => queryClient.invalidateQueries({ queryKey: ["dashboard"] })}
+                disabled={isFetching}
+              >
+                <RefreshCw className={`w-3 h-3 ${isFetching ? "animate-spin text-purple-700" : ""}`} />
+                <span>{isFetching ? "Refreshing..." : "Refresh"}</span>
+              </Button>
+            </div>
           </div>
 
           {/* Tab 1: Overview */}
@@ -378,6 +537,59 @@ function Dashboard({ email }: { email: string }) {
               </div>
             </div>
 
+            {/* Recent Messages Quick Preview */}
+            <div className="rounded-3xl border border-purple-100/90 bg-white p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-purple-50">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5 text-emerald-600" />
+                  <h2 className="text-base font-bold text-[#1e0a45]">Latest WhatsApp Messages</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("messages")}
+                  className="text-xs font-semibold text-purple-700 hover:text-purple-950 transition-colors flex items-center gap-1"
+                >
+                  Open Live Monitor →
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {parsedMessages.slice(0, 4).map((msg) => (
+                  <div
+                    key={msg.id}
+                    onClick={() => setActiveTab("messages")}
+                    className="cursor-pointer rounded-2xl border border-purple-50 p-3.5 bg-slate-50/40 hover:bg-purple-50/40 transition-colors flex flex-wrap items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="space-y-1 max-w-xl">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-semibold text-purple-950">{msg.senderMasked}</span>
+                        {msg.isRoom && (
+                          <span className="bg-purple-100 text-purple-900 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                            Room #{msg.roomCode}
+                          </span>
+                        )}
+                        <StatusPill tone={(statusLabels[msg.status]?.tone as any) ?? "idle"}>
+                          {statusLabels[msg.status]?.label ?? msg.status}
+                        </StatusPill>
+                      </div>
+                      <p className="text-slate-800 font-medium truncate">
+                        "{msg.studentText || "No text payload"}"
+                      </p>
+                    </div>
+                    <span className="text-[11px] text-slate-400">
+                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                ))}
+
+                {parsedMessages.length === 0 && (
+                  <p className="text-center py-6 text-xs text-slate-400">
+                    No messages received yet. Send a WhatsApp message to test!
+                  </p>
+                )}
+              </div>
+            </div>
+
             {/* Study Buddy Practice Rooms */}
             <div className="rounded-3xl border border-purple-100/90 bg-white p-6 shadow-sm space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-purple-50">
@@ -438,79 +650,333 @@ function Dashboard({ email }: { email: string }) {
             </div>
           </TabsContent>
 
-          {/* Tab 2: Activity */}
-          <TabsContent value="activity" className="space-y-6 mt-0">
-            <div className="rounded-3xl border border-purple-100/90 bg-white overflow-hidden shadow-sm">
-              <div className="px-6 py-4 border-b border-purple-50 flex items-center justify-between">
-                <div>
-                  <h2 className="text-base font-bold text-[#1e0a45]">Recent WhatsApp Activity</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Last 25 message events received by the bot</p>
+          {/* Tab 2: WhatsApp Messages Monitor */}
+          <TabsContent value="messages" className="space-y-6 mt-0">
+            {/* Filter & Search Bar */}
+            <div className="rounded-3xl border border-purple-100/90 bg-white p-5 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+                {/* Search */}
+                <div className="relative flex-1 max-w-md">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Input
+                    type="text"
+                    placeholder="Search WhatsApp messages, numbers, corrections..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="rounded-full border-slate-200 pl-10 text-xs py-2 bg-slate-50/50 focus:bg-white focus:border-purple-600"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
-                <span className="text-xs text-slate-400 font-medium">Auto-refreshes every 30s</span>
+
+                {/* View Mode Toggle */}
+                <div className="flex items-center gap-1 bg-purple-50 p-1 rounded-full border border-purple-100 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("feed")}
+                    className={`px-3 py-1 text-xs font-semibold rounded-full transition-all flex items-center gap-1.5 ${
+                      viewMode === "feed"
+                        ? "bg-white text-[#1e0a45] shadow-xs"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <Layers className="w-3.5 h-3.5" /> Chat Feed
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("table")}
+                    className={`px-3 py-1 text-xs font-semibold rounded-full transition-all flex items-center gap-1.5 ${
+                      viewMode === "table"
+                        ? "bg-white text-[#1e0a45] shadow-xs"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    <Filter className="w-3.5 h-3.5" /> Table
+                  </button>
+                </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-purple-50/70 text-[#1e0a45] uppercase tracking-wider font-bold border-b border-purple-100/80">
-                    <tr>
-                      <th className="px-6 py-3.5">Timestamp</th>
-                      <th className="px-6 py-3.5">Sender</th>
-                      <th className="px-6 py-3.5">Status</th>
-                      <th className="px-6 py-3.5">Correction / Error Detail</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-purple-50 text-slate-700">
-                    {(data?.recent ?? []).map((row) => {
-                      const s = statusLabels[row.status] ?? { label: row.status, tone: "idle" as const };
-                      let isGroup = false;
-                      try {
-                        if (row.error_detail) {
-                          const p = JSON.parse(row.error_detail);
-                          if (p.is_group) isGroup = true;
-                        }
-                      } catch {}
-
-                      return (
-                        <tr key={row.id} className="hover:bg-purple-50/40 transition-colors">
-                          <td className="px-6 py-3.5 whitespace-nowrap text-slate-500 font-medium">
-                            {new Date(row.created_at).toLocaleString()}
-                          </td>
-                          <td className="px-6 py-3.5 font-mono text-xs">
-                            <span className="text-purple-950 font-semibold">{row.sender_masked}</span>
-                            {isGroup && (
-                              <span className="ml-2 inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-900 border border-purple-200">
-                                Room
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-3.5">
-                            <StatusPill tone={s.tone}>{s.label}</StatusPill>
-                          </td>
-                          <td className="px-6 py-3.5 max-w-sm truncate text-slate-600" title={row.error_detail ?? ""}>
-                            {(() => {
-                              if (!row.error_detail) return <span className="text-slate-300">—</span>;
-                              try {
-                                const parsed = JSON.parse(row.error_detail);
-                                if (parsed.explanation) return parsed.explanation;
-                              } catch {}
-                              return row.error_detail;
-                            })()}
-                          </td>
-                        </tr>
-                      );
-                    })}
-
-                    {!isLoading && (data?.recent?.length ?? 0) === 0 && (
-                      <tr>
-                        <td colSpan={4} className="px-6 py-12 text-center text-slate-400">
-                          No messages received yet. Send a WhatsApp message to test!
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+              {/* Status Filter Chips */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <FilterChip
+                  active={statusFilter === "all"}
+                  label="All Messages"
+                  count={parsedMessages.length}
+                  onClick={() => setStatusFilter("all")}
+                />
+                <FilterChip
+                  active={statusFilter === "corrected"}
+                  label="Mistakes Corrected"
+                  count={parsedMessages.filter((m) => m.status.includes("corrected") || m.hasError).length}
+                  onClick={() => setStatusFilter("corrected")}
+                  badgeColor="amber"
+                />
+                <FilterChip
+                  active={statusFilter === "clean"}
+                  label="Natural / No Mistake"
+                  count={parsedMessages.filter((m) => m.status === "no_error" || m.status === "relay_ok").length}
+                  onClick={() => setStatusFilter("clean")}
+                  badgeColor="green"
+                />
+                <FilterChip
+                  active={statusFilter === "rooms"}
+                  label="Study Buddy Rooms"
+                  count={parsedMessages.filter((m) => m.isRoom || m.status === "room_command").length}
+                  onClick={() => setStatusFilter("rooms")}
+                  badgeColor="purple"
+                />
+                <FilterChip
+                  active={statusFilter === "failed"}
+                  label="Issues / Failed"
+                  count={parsedMessages.filter((m) => m.status === "failed" || m.status === "skipped_disabled").length}
+                  onClick={() => setStatusFilter("failed")}
+                  badgeColor="red"
+                />
               </div>
             </div>
+
+            {/* Message Feed View */}
+            {viewMode === "feed" && (
+              <div className="space-y-4">
+                {filteredMessages.map((msg) => {
+                  const s = statusLabels[msg.status] ?? { label: msg.status, tone: "idle" as const };
+                  const isExpanded = expandedDetails[msg.id] ?? false;
+
+                  return (
+                    <div
+                      key={msg.id}
+                      className="rounded-3xl border border-purple-100/90 bg-white p-5 sm:p-6 shadow-xs transition-all hover:shadow-md hover:shadow-purple-950/5 space-y-4"
+                    >
+                      {/* Message Meta Header */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-purple-50 text-xs">
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <div className="w-7 h-7 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center text-emerald-800 font-bold text-xs">
+                            💬
+                          </div>
+                          <span className="font-mono font-bold text-purple-950 text-sm">
+                            {msg.senderMasked}
+                          </span>
+
+                          {msg.isRoom && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-0.5 text-[11px] font-bold text-purple-900 border border-purple-200">
+                              <Users className="w-3 h-3" /> Room #{msg.roomCode}
+                              {msg.partnerMasked && <span className="text-purple-700 font-normal">→ {msg.partnerMasked}</span>}
+                            </span>
+                          )}
+
+                          {msg.isGroup && (
+                            <span className="rounded-full bg-blue-50 text-blue-800 px-2 py-0.5 text-[11px] font-bold border border-blue-200">
+                              WhatsApp Group
+                            </span>
+                          )}
+
+                          <StatusPill tone={s.tone}>{s.label}</StatusPill>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-slate-400 text-[11px]">
+                          <span>{new Date(msg.createdAt).toLocaleString()}</span>
+                        </div>
+                      </div>
+
+                      {/* Content: Conversation flow */}
+                      <div className="space-y-3">
+                        {/* Student WhatsApp Bubble */}
+                        <div className="flex items-start gap-2.5">
+                          <span className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider shrink-0 w-16">
+                            Student:
+                          </span>
+                          <div className="bg-[#e7fed6] border border-[#cbebb2] text-[#0f2c14] rounded-2xl rounded-tl-none px-4 py-2.5 text-xs sm:text-sm font-medium shadow-2xs max-w-2xl leading-relaxed">
+                            {msg.studentText || <span className="text-slate-400 italic">No message text recorded</span>}
+                          </div>
+                        </div>
+
+                        {/* Bot Action / Correction */}
+                        {(msg.botReply || msg.correctedText) && (
+                          <div className="flex items-start gap-2.5">
+                            <span className="text-xs font-bold text-purple-900 mt-1 uppercase tracking-wider shrink-0 w-16 flex items-center gap-1">
+                              <img src="/images/robot.png" alt="Bot" className="w-3.5 h-3.5 object-contain" /> Bot:
+                            </span>
+                            <div className="bg-[#fef9eb] border border-amber-200/80 rounded-2xl rounded-tl-none p-3.5 text-xs space-y-2 max-w-2xl shadow-2xs">
+                              <p className="font-semibold text-slate-800">
+                                You meant: <span className="text-purple-950 font-bold">"{msg.botReply || msg.correctedText}"</span>
+                              </p>
+
+                              {msg.explanation && (
+                                <div className="pt-2 border-t border-amber-200/60 text-slate-700 text-[11px] flex items-start gap-1.5">
+                                  <span className="text-amber-600 font-bold shrink-0">💡 Why?</span>
+                                  <span>{msg.explanation}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Clean Message confirmation */}
+                        {!msg.hasError && (msg.status === "no_error" || msg.status === "relay_ok") && (
+                          <div className="flex items-start gap-2.5">
+                            <span className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider shrink-0 w-16">
+                              Bot:
+                            </span>
+                            <div className="bg-emerald-50/70 border border-emerald-100 text-emerald-800 rounded-xl px-3.5 py-1.5 text-xs font-medium inline-flex items-center gap-1.5">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Natural English detected — no correction needed.</span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Room Command confirmation */}
+                        {msg.status === "room_command" && (
+                          <div className="flex items-start gap-2.5">
+                            <span className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider shrink-0 w-16">
+                              Action:
+                            </span>
+                            <div className="bg-purple-50 text-purple-900 border border-purple-100 rounded-xl px-3.5 py-1.5 text-xs font-mono font-semibold inline-flex items-center gap-1.5">
+                              <span>Executed Study Buddy command</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Expandable Technical Detail */}
+                      <div className="pt-2 border-t border-purple-50/80 flex items-center justify-between text-[11px]">
+                        <button
+                          type="button"
+                          onClick={() => toggleDetails(msg.id)}
+                          className="text-purple-700 hover:text-purple-950 font-semibold inline-flex items-center gap-1 transition-colors"
+                        >
+                          <Code className="w-3.5 h-3.5" />
+                          <span>{isExpanded ? "Hide Technical Details" : "Inspect Raw Payload"}</span>
+                          {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        </button>
+
+                        <span className="font-mono text-slate-400 text-[10px]">
+                          ID: {msg.waMessageId.slice(-12)}
+                        </span>
+                      </div>
+
+                      {/* Raw Payload Section */}
+                      {isExpanded && (
+                        <div className="rounded-2xl bg-slate-900 text-slate-200 p-4 font-mono text-[11px] space-y-2 animate-in fade-in-50">
+                          <div className="flex items-center justify-between text-slate-400 border-b border-slate-800 pb-1.5">
+                            <span>WhatsApp Message ID: {msg.waMessageId}</span>
+                            <span>UUID: {msg.id}</span>
+                          </div>
+                          {msg.rawDetail ? (
+                            <pre className="overflow-x-auto text-[10px] text-emerald-400 max-h-48 leading-relaxed">
+                              {(() => {
+                                try {
+                                  return JSON.stringify(JSON.parse(msg.rawDetail), null, 2);
+                                } catch {
+                                  return msg.rawDetail;
+                                }
+                              })()}
+                            </pre>
+                          ) : (
+                            <p className="text-slate-500 italic">No error details logged</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {filteredMessages.length === 0 && (
+                  <div className="rounded-3xl border border-purple-100 bg-white p-12 text-center space-y-3">
+                    <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center mx-auto text-purple-700">
+                      <Search className="w-5 h-5" />
+                    </div>
+                    <h3 className="text-sm font-bold text-[#1e0a45]">No messages found</h3>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                      {searchQuery
+                        ? `No messages matched your search "${searchQuery}". Try clearing filters.`
+                        : "No messages in this category yet. Send a test WhatsApp message to see it appear live!"}
+                    </p>
+                    {searchQuery && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-full text-xs"
+                        onClick={() => {
+                          setSearchQuery("");
+                          setStatusFilter("all");
+                        }}
+                      >
+                        Reset Filters
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Table View */}
+            {viewMode === "table" && (
+              <div className="rounded-3xl border border-purple-100/90 bg-white overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-purple-50/70 text-[#1e0a45] uppercase tracking-wider font-bold border-b border-purple-100/80">
+                      <tr>
+                        <th className="px-5 py-3.5">Time</th>
+                        <th className="px-5 py-3.5">Sender</th>
+                        <th className="px-5 py-3.5">WhatsApp Message</th>
+                        <th className="px-5 py-3.5">Bot Correction & Reply</th>
+                        <th className="px-5 py-3.5">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-purple-50 text-slate-700">
+                      {filteredMessages.map((msg) => {
+                        const s = statusLabels[msg.status] ?? { label: msg.status, tone: "idle" as const };
+
+                        return (
+                          <tr key={msg.id} className="hover:bg-purple-50/40 transition-colors">
+                            <td className="px-5 py-3.5 whitespace-nowrap text-slate-500 font-medium">
+                              {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            <td className="px-5 py-3.5 font-mono text-xs whitespace-nowrap">
+                              <span className="text-purple-950 font-semibold">{msg.senderMasked}</span>
+                              {msg.isRoom && (
+                                <span className="ml-1.5 inline-flex items-center rounded-full bg-purple-100 px-1.5 py-0.2 text-[10px] font-bold text-purple-900 border border-purple-200">
+                                  #{msg.roomCode}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-5 py-3.5 max-w-xs truncate font-medium text-slate-900" title={msg.studentText}>
+                              {msg.studentText || <span className="text-slate-300 italic">—</span>}
+                            </td>
+                            <td className="px-5 py-3.5 max-w-sm truncate text-purple-950" title={msg.botReply || msg.explanation || ""}>
+                              {msg.botReply ? (
+                                <span>👉 {msg.botReply}</span>
+                              ) : msg.explanation ? (
+                                <span>💡 {msg.explanation}</span>
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
+                            </td>
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <StatusPill tone={s.tone}>{s.label}</StatusPill>
+                            </td>
+                          </tr>
+                        );
+                      })}
+
+                      {filteredMessages.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                            No messages match your criteria.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           {/* Tab 3: Settings */}
@@ -558,7 +1024,7 @@ function Dashboard({ email }: { email: string }) {
                   Store Message Text For Debugging
                 </Label>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Off by default. When off, only message IDs, masked phone numbers, and correction metadata are stored.
+                  Allows storing message body for admin auditing and live monitoring.
                 </p>
               </div>
               <Switch
@@ -626,5 +1092,44 @@ function ConfigRow({
         {ok ? "Configured" : optional ? "Optional" : "Missing"}
       </StatusPill>
     </li>
+  );
+}
+
+function FilterChip({
+  label,
+  count,
+  active,
+  onClick,
+  badgeColor = "slate",
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+  badgeColor?: "slate" | "amber" | "green" | "purple" | "red";
+}) {
+  const badgeColors = {
+    slate: "bg-slate-200/80 text-slate-800",
+    amber: "bg-amber-200/90 text-amber-950",
+    green: "bg-emerald-200/90 text-emerald-950",
+    purple: "bg-purple-200/90 text-purple-950",
+    red: "bg-rose-200/90 text-rose-950",
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all inline-flex items-center gap-1.5 border ${
+        active
+          ? "bg-[#240b4a] text-white border-[#240b4a] shadow-xs"
+          : "bg-white text-slate-600 border-purple-100/80 hover:bg-purple-50/50"
+      }`}
+    >
+      <span>{label}</span>
+      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-extrabold ${active ? "bg-white/20 text-white" : badgeColors[badgeColor]}`}>
+        {count}
+      </span>
+    </button>
   );
 }

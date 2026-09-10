@@ -169,7 +169,7 @@ async function processTextMessage(msg: IncomingTextMessage) {
       status: correctionResult?.has_error ? "relay_corrected" : "relay_ok",
       has_error: correctionResult?.has_error ?? false,
       correction_sent: Boolean(correctionResult?.has_error),
-      message_content: settings.store_message_content ? `[Room #${partnerInfo.roomCode}] ${msg.text.slice(0, 950)}` : null,
+      message_content: `[Room #${partnerInfo.roomCode}] ${msg.text.slice(0, 950)}`,
       error_detail: detail,
     });
     return;
@@ -177,8 +177,7 @@ async function processTextMessage(msg: IncomingTextMessage) {
 
   // --- Regular 1-on-1 or Group Fallback Mode ---
   const isGroup = Boolean(msg.groupId);
-  const rawContent = settings.store_message_content ? msg.text.slice(0, 950) : null;
-  const content = rawContent ? (isGroup ? `[Group] ${rawContent}` : rawContent) : null;
+  const content = isGroup ? `[Group] ${msg.text.slice(0, 950)}` : msg.text.slice(0, 950);
 
   if (!settings.bot_enabled) {
     await finish({ status: "skipped_disabled", message_content: content });
