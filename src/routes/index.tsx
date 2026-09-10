@@ -40,6 +40,7 @@ export const Route = createFileRoute("/")({
 
 const statusLabels: Record<string, { label: string; tone: "ok" | "warn" | "bad" | "idle" }> = {
   corrected: { label: "Correction sent", tone: "ok" },
+  explanation_sent: { label: "Explanation sent", tone: "ok" },
   no_error: { label: "No mistake", tone: "idle" },
   skipped_disabled: { label: "Bot off", tone: "warn" },
   failed: { label: "Failed", tone: "bad" },
@@ -227,8 +228,15 @@ function Dashboard({ email }: { email: string }) {
                       <td className="px-4 py-3">
                         <StatusPill tone={s.tone}>{s.label}</StatusPill>
                       </td>
-                      <td className="max-w-xs truncate px-4 py-3 text-muted-foreground">
-                        {row.error_detail ?? ""}
+                      <td className="max-w-xs truncate px-4 py-3 text-muted-foreground" title={row.error_detail ?? ""}>
+                        {(() => {
+                          if (!row.error_detail) return "";
+                          try {
+                            const parsed = JSON.parse(row.error_detail);
+                            if (parsed.explanation) return parsed.explanation;
+                          } catch {}
+                          return row.error_detail;
+                        })()}
                       </td>
                     </tr>
                   );

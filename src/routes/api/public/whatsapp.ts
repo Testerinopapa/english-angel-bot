@@ -1,12 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import {
+  formatExplanationCard,
   maskSender,
-  parseIncomingTextMessages,
+  parseIncomingMessages,
   readMetaConfig,
   requestCorrection,
+  sendWhatsAppInteractiveButton,
   sendWhatsAppText,
   verifyMetaSignature,
+  type IncomingInteractiveMessage,
   type IncomingTextMessage,
 } from "@/lib/talknbit.server";
 
@@ -16,7 +19,7 @@ type Settings = {
   system_prompt: string;
 };
 
-async function processMessage(msg: IncomingTextMessage) {
+async function processTextMessage(msg: IncomingTextMessage) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
   // Duplicate protection: unique wa_message_id. If Meta retries, this insert fails.
@@ -70,12 +73,28 @@ async function processMessage(msg: IncomingTextMessage) {
       return;
     }
 
-    await sendWhatsAppText(msg.from, result.reply);
+    // Send interactive button with fallback to plain text
+    await sendWhatsAppInteractiveButton(
+      msg.from,
+      result.reply,
+      `why_${msg.waMessageId}`,
+      "Why? 💡",
+    );
+
+    // Save structured correction detail for instant "Why?" lookup
+    const errorDetail = JSON.stringify({
+      original_text: msg.text,
+      corrected_text: result.corrected_text,
+      explanation: result.explanation,
+      reply: result.reply,
+    });
+
     await finish({
       status: "corrected",
       has_error: true,
       correction_sent: true,
       message_content: content,
+      error_detail: errorDetail,
     });
   } catch (error) {
     await finish({
@@ -83,6 +102,106 @@ async function processMessage(msg: IncomingTextMessage) {
       has_error: null,
       error_detail: error instanceof Error ? error.message.slice(0, 500) : "Unknown error",
       message_content: content,
+    });
+  }
+}
+
+async function processInteractiveMessage(msg: IncomingInteractiveMessage) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  // Duplicate protection: unique wa_message_id.
+  const { error: insertError } = await supabaseAdmin.from("message_events").insert({
+    wa_message_id: msg.waMessageId,
+    sender_masked: maskSender(msg.from),
+    wa_timestamp: msg.timestamp,
+    status: "received",
+  });
+  if (insertError) return;
+
+  const finish = async (patch: Record<string, unknown>) => {
+    await supabaseAdmin
+      .from("message_events")
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq("wa_message_id", msg.waMessageId);
+  };
+
+  if (msg.buttonId.startsWith("why_")) {
+    const targetWaId = msg.buttonId.slice(4);
+
+    let eventRow: {
+      wa_message_id: string;
+      message_content: string | null;
+      error_detail: string | null;
+    } | null = null;
+
+    if (targetWaId) {
+      const { data } = await supabaseAdmin
+        .from("message_events")
+        .select("wa_message_id, message_content, error_detail")
+        .eq("wa_message_id", targetWaId)
+        .maybeSingle();
+      eventRow = data;
+    }
+
+    // Fallback: look up the most recent corrected message for this sender if ID search missed
+    if (!eventRow) {
+      const { data: fallbackData } = await supabaseAdmin
+        .from("message_events")
+        .select("wa_message_id, message_content, error_detail")
+        .eq("sender_masked", maskSender(msg.from))
+        .eq("status", "corrected")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      eventRow = fallbackData;
+    }
+
+    let explanation = "";
+    let correctedText = "";
+    let originalText = "";
+
+    if (eventRow?.error_detail) {
+      try {
+        const parsed = JSON.parse(eventRow.error_detail);
+        explanation = typeof parsed.explanation === "string" ? parsed.explanation : "";
+        correctedText = typeof parsed.corrected_text === "string" ? parsed.corrected_text : "";
+        originalText = typeof parsed.original_text === "string" ? parsed.original_text : "";
+      } catch {
+        explanation = eventRow.error_detail;
+      }
+    }
+    if (!originalText && eventRow?.message_content) {
+      originalText = eventRow.message_content;
+    }
+
+    if (explanation || correctedText) {
+      const card = formatExplanationCard(originalText, correctedText, explanation);
+      await sendWhatsAppText(msg.from, card);
+      await finish({
+        status: "explanation_sent",
+        has_error: false,
+        correction_sent: true,
+        message_content: `[${msg.buttonTitle}]`,
+        error_detail: JSON.stringify({
+          target_wa_id: targetWaId,
+          explanation,
+        }),
+      });
+    } else {
+      const fallbackMsg =
+        "💡 *Grammar Tip:* Keep chatting! Whenever a mistake is spotted, tap *Why?* to see the explanation.";
+      await sendWhatsAppText(msg.from, fallbackMsg);
+      await finish({
+        status: "explanation_sent",
+        has_error: false,
+        correction_sent: true,
+        message_content: `[${msg.buttonTitle}] (no cached explanation)`,
+      });
+    }
+  } else {
+    await finish({
+      status: "received",
+      message_content: `Interactive button: ${msg.buttonId}`,
     });
   }
 }
@@ -122,9 +241,13 @@ export const Route = createFileRoute("/api/public/whatsapp")({
         }
 
         try {
-          const messages = parseIncomingTextMessages(payload);
+          const messages = parseIncomingMessages(payload);
           for (const msg of messages) {
-            await processMessage(msg);
+            if (msg.type === "text") {
+              await processTextMessage(msg);
+            } else if (msg.type === "interactive") {
+              await processInteractiveMessage(msg);
+            }
           }
         } catch (error) {
           console.error("whatsapp webhook error", error);
