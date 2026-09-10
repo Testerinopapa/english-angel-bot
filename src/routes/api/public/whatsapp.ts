@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import {
   formatExplanationCard,
+  formatPrivateCorrection,
   maskSender,
   parseIncomingMessages,
   readMetaConfig,
@@ -50,7 +51,9 @@ async function processTextMessage(msg: IncomingTextMessage) {
     return;
   }
 
-  const content = settings.store_message_content ? msg.text.slice(0, 1000) : null;
+  const isGroup = Boolean(msg.groupId);
+  const rawContent = settings.store_message_content ? msg.text.slice(0, 950) : null;
+  const content = rawContent ? (isGroup ? `[Group] ${rawContent}` : rawContent) : null;
 
   if (!settings.bot_enabled) {
     await finish({ status: "skipped_disabled", message_content: content });
@@ -73,10 +76,13 @@ async function processTextMessage(msg: IncomingTextMessage) {
       return;
     }
 
-    // Send interactive button with fallback to plain text
+    // Format correction: in group messages, discreetly indicate context in private DM
+    const replyText = formatPrivateCorrection(msg.text, result.reply, isGroup);
+
+    // Send interactive button ALWAYS privately to msg.from (the student), never to group!
     await sendWhatsAppInteractiveButton(
       msg.from,
-      result.reply,
+      replyText,
       `why_${msg.waMessageId}`,
       "Why? 💡",
     );
@@ -87,10 +93,12 @@ async function processTextMessage(msg: IncomingTextMessage) {
       corrected_text: result.corrected_text,
       explanation: result.explanation,
       reply: result.reply,
+      is_group: isGroup,
+      group_id: msg.groupId ?? null,
     });
 
     await finish({
-      status: "corrected",
+      status: isGroup ? "corrected_group_dm" : "corrected",
       has_error: true,
       correction_sent: true,
       message_content: content,

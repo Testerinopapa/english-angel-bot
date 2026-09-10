@@ -40,6 +40,7 @@ export const Route = createFileRoute("/")({
 
 const statusLabels: Record<string, { label: string; tone: "ok" | "warn" | "bad" | "idle" }> = {
   corrected: { label: "Correction sent", tone: "ok" },
+  corrected_group_dm: { label: "Group Private DM", tone: "ok" },
   explanation_sent: { label: "Explanation sent", tone: "ok" },
   no_error: { label: "No mistake", tone: "idle" },
   skipped_disabled: { label: "Bot off", tone: "warn" },
@@ -203,6 +204,24 @@ function Dashboard({ email }: { email: string }) {
               </p>
             </div>
           </div>
+
+          <div className="panel p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Group Secret-Watcher Mode</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Two or more students chatting normally in a WhatsApp study group. The bot secretly watches and sends
+                  corrections privately via 1-on-1 DM, keeping the group conversation uninterrupted.
+                </p>
+              </div>
+              <StatusPill tone="ok">Active</StatusPill>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-4 text-xs">
+              <span className="rounded bg-primary/10 px-2.5 py-1 font-mono font-medium text-primary">
+                Group Private DMs: {data?.stats.groupCorrections ?? 0}
+              </span>
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="activity" className="mt-6">
@@ -219,12 +238,26 @@ function Dashboard({ email }: { email: string }) {
               <tbody>
                 {(data?.recent ?? []).map((row) => {
                   const s = statusLabels[row.status] ?? { label: row.status, tone: "idle" as const };
+                  let isGroup = false;
+                  try {
+                    if (row.error_detail) {
+                      const p = JSON.parse(row.error_detail);
+                      if (p.is_group) isGroup = true;
+                    }
+                  } catch {}
                   return (
                     <tr key={row.id} className="border-t border-border/60">
                       <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
                         {new Date(row.created_at).toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs">{row.sender_masked}</td>
+                      <td className="px-4 py-3 font-mono text-xs">
+                        {row.sender_masked}
+                        {isGroup && (
+                          <span className="ml-2 inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                            Group
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <StatusPill tone={s.tone}>{s.label}</StatusPill>
                       </td>
