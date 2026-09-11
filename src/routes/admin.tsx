@@ -74,17 +74,45 @@ export const Route = createFileRoute("/admin")({
 });
 
 const statusLabels: Record<string, { label: string; tone: "ok" | "warn" | "bad" | "idle" }> = {
-  corrected: { label: "Correction sent", tone: "ok" },
-  corrected_group_dm: { label: "Group Private DM", tone: "ok" },
-  relay_corrected: { label: "Relayed + Private DM", tone: "ok" },
-  relay_ok: { label: "Relayed (Clean)", tone: "idle" },
-  room_command: { label: "Room command", tone: "idle" },
-  explanation_sent: { label: "Explanation sent", tone: "ok" },
-  no_error: { label: "No mistake", tone: "idle" },
-  skipped_disabled: { label: "Bot off", tone: "warn" },
-  failed: { label: "Failed", tone: "bad" },
-  received: { label: "Received", tone: "idle" },
+  // Corrections & AI Feedback
+  corrected: { label: "Correction Sent", tone: "ok" },
+  corrected_group_dm: { label: "Group Correction DM", tone: "ok" },
+  relay_corrected: { label: "Relayed + Correction", tone: "ok" },
+  relay_ok: { label: "Relayed (No Mistake)", tone: "idle" },
+  no_error: { label: "Natural English (Clean)", tone: "idle" },
+  confirmed_correct: { label: "Confirmed Natural", tone: "ok" },
+  hint_sent: { label: "Grammar Hint Sent", tone: "ok" },
+  explanation_sent: { label: "Grammar Explanation", tone: "ok" },
+
+  // Bot Navigation & Onboarding Menus
+  intro_sent: { label: "Welcome Menu Sent", tone: "ok" },
+  capabilities_sent: { label: "How It Works Sent", tone: "ok" },
+  starter_sent: { label: "1-on-1 Practice Started", tone: "ok" },
+  room_tutorial_sent: { label: "Study Buddy Guide", tone: "ok" },
+  room_command: { label: "Study Buddy Command", tone: "idle" },
+  try_sentence_prompted: { label: "Practice Prompt Sent", tone: "ok" },
+  bilingual_answered: { label: "Bilingual Helper Sent", tone: "ok" },
+
+  // Subscriptions & Paywall
+  paywall_shown: { label: "Trial Paywall Shown", tone: "warn" },
+  pay_link_sent: { label: "Checkout Link Sent", tone: "ok" },
+  paywall_benefits_sent: { label: "Plan Benefits Sent", tone: "ok" },
+
+  // System & Status
+  skipped_disabled: { label: "Bot Inactive", tone: "warn" },
+  failed: { label: "Processing Error", tone: "bad" },
+  received: { label: "Message Received", tone: "idle" },
 };
+
+function getStatusInfo(status: string): { label: string; tone: "ok" | "warn" | "bad" | "idle" } {
+  if (statusLabels[status]) {
+    return statusLabels[status];
+  }
+  const cleanLabel = status
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return { label: cleanLabel, tone: "idle" };
+}
 
 interface MessageEventRow {
   id: string;
@@ -140,7 +168,59 @@ function parseMessageEvent(row: MessageEventRow) {
     studentText = studentText.replace(/^\[Group\]\s*/, "");
   }
 
-  if (row.status === "explanation_sent") {
+  // Convert raw button IDs to human-friendly action text
+  if (studentText.startsWith("[btn_") || studentText.startsWith("btn_") || (studentText.startsWith("[") && studentText.endsWith("]"))) {
+    const rawClean = studentText.replace(/^\[|\]$/g, "");
+    if (rawClean === "btn_1on1" || rawClean.includes("Practice 1-on-1")) {
+      studentText = "🔘 Selected: Practice 1-on-1 🗣️";
+    } else if (rawClean === "btn_rooms" || rawClean.includes("Study Buddy")) {
+      studentText = "🔘 Selected: Study Buddy Rooms 👥";
+    } else if (rawClean === "btn_capabilities" || rawClean.includes("How It Works")) {
+      studentText = "🔘 Selected: How It Works 💡";
+    } else if (rawClean === "btn_try_sentence" || rawClean.includes("Try in a Sentence")) {
+      studentText = "🔘 Selected: Try in a Sentence ✍️";
+    } else if (rawClean === "btn_random_topic" || rawClean.includes("New Topic") || rawClean.includes("Random Topic")) {
+      studentText = "🔘 Selected: New Topic 🎲";
+    } else if (rawClean === "btn_sentence_hint" || rawClean.includes("Hint")) {
+      studentText = "🔘 Selected: Give Me a Hint 💡";
+    } else if (rawClean === "btn_join_101" || rawClean.includes("Join Room")) {
+      studentText = "🔘 Selected: Join Room #101 🚀";
+    } else if (rawClean === "btn_pay_monthly") {
+      studentText = "🔘 Selected: Monthly Plan (R$36) 💳";
+    } else if (rawClean === "btn_pay_yearly") {
+      studentText = "🔘 Selected: Yearly Plan (40% OFF) 🚀";
+    } else if (rawClean === "btn_paywall_benefits") {
+      studentText = "🔘 Selected: What's Included 💡";
+    }
+  }
+
+  // Friendly descriptions of bot responses for onboarding & menu flows
+  if (row.status === "intro_sent") {
+    studentText = studentText || "Sent greeting / started conversation";
+    botReply = botReply || "Sent Talk'n'Bit Welcome Menu: 1-on-1 Practice, Study Buddy Rooms & How It Works";
+  } else if (row.status === "capabilities_sent") {
+    studentText = studentText || "🔘 Selected: How It Works 💡";
+    botReply = botReply || "Sent feature overview & instructions on how Talk'n'Bit corrects English";
+  } else if (row.status === "starter_sent") {
+    studentText = studentText || "🔘 Selected: Practice 1-on-1 🗣️";
+    botReply = botReply || "Sent 1-on-1 practice topic starter to get the conversation rolling";
+  } else if (row.status === "room_tutorial_sent") {
+    studentText = studentText || "🔘 Selected: Study Buddy Rooms 👥";
+    botReply = botReply || "Sent Study Buddy Room tutorial (/join <code>)";
+  } else if (row.status === "try_sentence_prompted") {
+    studentText = studentText || "🔘 Selected: Try in a Sentence ✍️";
+    botReply = botReply || "Prompted student to write a practice sentence for AI review";
+  } else if (row.status === "hint_sent") {
+    studentText = studentText || "🔘 Selected: Give Me a Hint 💡";
+    botReply = botReply || "Sent sentence starter ideas and vocabulary hints";
+  } else if (row.status === "paywall_shown") {
+    botReply = botReply || "Sent trial expiration notice & subscription plan options";
+  } else if (row.status === "pay_link_sent") {
+    botReply = botReply || "Sent secure checkout link";
+  } else if (row.status === "paywall_benefits_sent") {
+    studentText = studentText || "🔘 Selected: What's Included 💡";
+    botReply = botReply || "Sent full Talk'n'Bit Premium benefits breakdown";
+  } else if (row.status === "explanation_sent") {
     studentText = studentText || "Tapped 'Why? 💡' button";
     if (row.error_detail) {
       try {
@@ -563,33 +643,58 @@ function Dashboard({ email }: { email: string }) {
               </div>
 
               <div className="space-y-3">
-                {parsedMessages.slice(0, 4).map((msg) => (
-                  <div
-                    key={msg.id}
-                    onClick={() => setActiveTab("messages")}
-                    className="cursor-pointer rounded-2xl border border-purple-50 p-3.5 bg-slate-50/40 hover:bg-purple-50/40 transition-colors flex flex-wrap items-center justify-between gap-3 text-xs"
-                  >
-                    <div className="space-y-1 max-w-xl">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-semibold text-purple-950">{msg.senderMasked}</span>
-                        {msg.isRoom && (
-                          <span className="bg-purple-100 text-purple-900 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                            Room #{msg.roomCode}
+                {parsedMessages.slice(0, 5).map((msg) => {
+                  const s = getStatusInfo(msg.status);
+                  return (
+                    <div
+                      key={msg.id}
+                      onClick={() => setActiveTab("messages")}
+                      className="cursor-pointer rounded-2xl border border-purple-50 p-4 bg-slate-50/50 hover:bg-purple-50/50 hover:border-purple-200/60 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs group"
+                    >
+                      <div className="space-y-1.5 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-bold text-purple-950 text-xs sm:text-sm">
+                            {msg.senderMasked}
                           </span>
+                          {msg.isRoom && (
+                            <span className="bg-purple-100 text-purple-900 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                              Room #{msg.roomCode}
+                            </span>
+                          )}
+                          <StatusPill tone={s.tone}>{s.label}</StatusPill>
+                        </div>
+
+                        {/* Student text preview */}
+                        <p className="text-slate-800 font-medium truncate">
+                          "{msg.studentText || "Sent a greeting"}"
+                        </p>
+
+                        {/* Bot action summary */}
+                        {(msg.correctedText || msg.botReply || msg.explanation) && (
+                          <p className="text-[11px] text-purple-900/80 truncate flex items-center gap-1 font-normal">
+                            <span className="text-purple-600 font-semibold">Bot:</span>
+                            {msg.correctedText ? (
+                              <span>Corrected to "{msg.correctedText}"</span>
+                            ) : msg.explanation ? (
+                              <span>💡 {msg.explanation}</span>
+                            ) : (
+                              <span>{msg.botReply}</span>
+                            )}
+                          </p>
                         )}
-                        <StatusPill tone={(statusLabels[msg.status]?.tone as any) ?? "idle"}>
-                          {statusLabels[msg.status]?.label ?? msg.status}
-                        </StatusPill>
                       </div>
-                      <p className="text-slate-800 font-medium truncate">
-                        "{msg.studentText || "No text payload"}"
-                      </p>
+
+                      <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-1 shrink-0">
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <span className="text-[10px] text-purple-600 font-semibold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                          View details →
+                        </span>
+                      </div>
                     </div>
-                    <span className="text-[11px] text-slate-400">
-                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {parsedMessages.length === 0 && (
                   <p className="text-center py-6 text-xs text-slate-400">
@@ -754,7 +859,7 @@ function Dashboard({ email }: { email: string }) {
             {viewMode === "feed" && (
               <div className="space-y-4">
                 {filteredMessages.map((msg) => {
-                  const s = statusLabels[msg.status] ?? { label: msg.status, tone: "idle" as const };
+                  const s = getStatusInfo(msg.status);
                   const isExpanded = expandedDetails[msg.id] ?? false;
 
                   return (
@@ -813,7 +918,13 @@ function Dashboard({ email }: { email: string }) {
                             </span>
                             <div className="bg-[#fef9eb] border border-amber-200/80 rounded-2xl rounded-tl-none p-3.5 text-xs space-y-2 max-w-2xl shadow-2xs">
                               <p className="font-semibold text-slate-800">
-                                You meant: <span className="text-purple-950 font-bold">"{msg.botReply || msg.correctedText}"</span>
+                                {msg.correctedText ? (
+                                  <>
+                                    You meant: <span className="text-purple-950 font-bold">"{msg.correctedText}"</span>
+                                  </>
+                                ) : (
+                                  <span className="text-purple-950 font-medium">{msg.botReply}</span>
+                                )}
                               </p>
 
                               {msg.explanation && (
@@ -940,7 +1051,7 @@ function Dashboard({ email }: { email: string }) {
                     </thead>
                     <tbody className="divide-y divide-purple-50 text-slate-700">
                       {filteredMessages.map((msg) => {
-                        const s = statusLabels[msg.status] ?? { label: msg.status, tone: "idle" as const };
+                        const s = getStatusInfo(msg.status);
 
                         return (
                           <tr key={msg.id} className="hover:bg-purple-50/40 transition-colors">
@@ -958,8 +1069,10 @@ function Dashboard({ email }: { email: string }) {
                             <td className="px-5 py-3.5 max-w-xs truncate font-medium text-slate-900" title={msg.studentText}>
                               {msg.studentText || <span className="text-slate-300 italic">—</span>}
                             </td>
-                            <td className="px-5 py-3.5 max-w-sm truncate text-purple-950" title={msg.botReply || msg.explanation || ""}>
-                              {msg.botReply ? (
+                            <td className="px-5 py-3.5 max-w-sm truncate text-purple-950" title={msg.botReply || msg.correctedText || msg.explanation || ""}>
+                              {msg.correctedText ? (
+                                <span>✏️ "{msg.correctedText}"</span>
+                              ) : msg.botReply ? (
                                 <span>👉 {msg.botReply}</span>
                               ) : msg.explanation ? (
                                 <span>💡 {msg.explanation}</span>
