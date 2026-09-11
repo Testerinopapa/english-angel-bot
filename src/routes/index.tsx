@@ -1,11 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Award,
-  CheckCircle2,
-  ExternalLink,
   Globe,
   MessageCircle,
-  Sparkles,
   ArrowRight,
   ShieldCheck,
   Menu,
@@ -14,11 +11,10 @@ import {
   ChevronUp,
   HelpCircle,
   BookOpen,
-  Send,
-  Check,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { TRANSLATIONS, type SupportedLang } from "@/lib/translations";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -47,63 +43,22 @@ function getWhatsAppUrl(customMessage: string) {
   return `https://wa.me/${BASE_WA_NUMBER}?text=${encodeURIComponent(customMessage)}`;
 }
 
-const WHATSAPP_URL = getWhatsAppUrl("Hi! I want to practice English with Talk'n'Bit");
-
-const FAQ_ITEMS = [
-  {
-    q: "How does Talk'n'Bit work?",
-    a: "Talk'n'Bit is your AI English buddy on WhatsApp. You chat in English naturally—either 1-on-1 with the bot, or with a friend in our secret-watcher practice rooms. When you make a grammatical mistake, the bot privately whispers the correction and gives you an interactive [Why? 💡] button explaining the rule.",
-  },
-  {
-    q: "Do I need to download any new app?",
-    a: "No! Everything runs 100% inside your existing WhatsApp. No logins, no passwords, no memory-heavy apps to install. You just send messages like you do every day.",
-  },
-  {
-    q: "What are Study Buddy Practice Rooms?",
-    a: "It's our secret-watcher mode! You and a study partner both text `/join <code >` (e.g. `/join 101`) to the bot. All messages are relayed to your partner, but whenever you make a mistake, Talk'n'Bit privately corrects only you. Your partner never sees your mistakes.",
-  },
-  {
-    q: "How does the 15-day money-back guarantee work?",
-    a: "Try Talk'n'Bit for up to 15 days risk-free. If you don't feel noticeably more confident speaking English, text our support or email us, and we will issue a full 100% refund immediately.",
-  },
-  {
-    q: "Can I cancel my subscription anytime?",
-    a: "Yes! There are no long-term contracts. You can pause or cancel your subscription at any time directly through WhatsApp or email with zero hassle.",
-  },
-  {
-    q: "Is Talk'n'Bit suitable for beginners or intermediate learners?",
-    a: "Both! Beginners love the zero-pressure environment and contextual Portuguese translation help, while intermediate and advanced speakers use it to eliminate recurring grammar bugs and build daily fluency.",
-  },
-];
-
-const BLOG_POSTS = [
-  {
-    title: "Why Micro-Practice on WhatsApp Beats 2-Hour Weekend Classes",
-    date: "Sep 2025",
-    readTime: "3 min read",
-    tag: "Science of Learning",
-    summary:
-      "Studies in cognitive neuroscience show that 10 minutes of active daily recall builds permanent neural pathways 3x faster than passive 2-hour weekend study sessions. Discover why WhatsApp chat is the ideal medium for language retention.",
-  },
-  {
-    title: "5 Common Grammar Mistakes Brazilian English Learners Make",
-    date: "Aug 2025",
-    readTime: "4 min read",
-    tag: "Grammar Tips",
-    summary:
-      "From 'I have 25 years' to 'I didn't went' and 'revisar meu currículo', we break down the most frequent false friends and literal translations—and how to fix them effortlessly.",
-  },
-  {
-    title: "How the 'Secret Watcher' Method Eliminates Speaking Anxiety",
-    date: "Jul 2025",
-    readTime: "3 min read",
-    tag: "Mindset",
-    summary:
-      "The #1 hurdle in language fluency is fear of judgment. Learn how private AI whispering gives you the psychological safety to make mistakes and speak freely without feeling embarrassed in front of peers.",
-  },
-];
-
 function LandingPage() {
+  const [selectedLang, setSelectedLang] = useState<SupportedLang>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("talknbit_lang") as SupportedLang;
+      if (saved && (saved === "en" || saved === "pt" || saved === "es")) {
+        return saved;
+      }
+      const browserLang = navigator.language?.toLowerCase() || "";
+      if (browserLang.startsWith("pt")) return "pt";
+      if (browserLang.startsWith("es")) return "es";
+    }
+    return "en";
+  });
+
+  const t = TRANSLATIONS[selectedLang] || TRANSLATIONS.en;
+
   const [interactiveSentence, setInteractiveSentence] = useState("");
   const [simulatedFeedback, setSimulatedFeedback] = useState<{
     original: string;
@@ -119,8 +74,18 @@ function LandingPage() {
   const [isFaqOpen, setIsFaqOpen] = useState(false);
   const [isBlogOpen, setIsBlogOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [selectedLang, setSelectedLang] = useState<"en" | "pt" | "es">("en");
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+
+  const WHATSAPP_URL = getWhatsAppUrl(t.whatsappMessages.greeting);
+
+  const handleSelectLanguage = (lang: SupportedLang) => {
+    setSelectedLang(lang);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("talknbit_lang", lang);
+    }
+    const names = { en: "English", pt: "Português (Brasil)", es: "Español" };
+    toast.success(`Language set to ${names[lang]}`);
+  };
 
   const handleSimulate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,37 +98,72 @@ function LandingPage() {
       setSimulatedFeedback({
         original: text,
         correction: text.replace(/didn't went/gi, "didn't go").replace(/did not went/gi, "did not go"),
-        why: "In past simple with 'didn't', we use the base verb form ('go', not 'went').",
+        why:
+          selectedLang === "pt"
+            ? "No passado simples com 'didn't', usamos o verbo na forma base ('go', e não 'went')."
+            : selectedLang === "es"
+            ? "En pasado simple con 'didn't', usamos el verbo en su forma base ('go', no 'went')."
+            : "In past simple with 'didn't', we use the base verb form ('go', not 'went').",
       });
     } else if (lower.includes("don't likes") || lower.includes("doesn't likes")) {
       setSimulatedFeedback({
         original: text,
         correction: text.replace(/don't likes/gi, "doesn't like").replace(/doesn't likes/gi, "doesn't like"),
-        why: "Third-person singular takes 'doesn't' + base verb 'like'.",
+        why:
+          selectedLang === "pt"
+            ? "A terceira pessoa do singular exige 'doesn't' + verbo base 'like'."
+            : selectedLang === "es"
+            ? "La tercera persona del singular requiere 'doesn't' + verbo base 'like'."
+            : "Third-person singular takes 'doesn't' + base verb 'like'.",
       });
     } else if (lower.includes("have") && (lower.includes("years old") || lower.includes("years"))) {
       setSimulatedFeedback({
         original: text,
         correction: text.replace(/have\s+(\d+)\s+years/gi, "am $1 years old").replace(/have\s+(\d+)/gi, "am $1 years old"),
-        why: "In English, we use 'to be' for age (e.g. 'I am 25 years old', not 'I have 25 years').",
+        why:
+          selectedLang === "pt"
+            ? "Em inglês, usamos o verbo 'to be' para expressar idade ('I am 25 years old', nunca 'I have 25 years')."
+            : selectedLang === "es"
+            ? "En inglés, usamos el verbo 'to be' para la edad ('I am 25 years old', nunca 'I have 25 years')."
+            : "In English, we use 'to be' for age (e.g. 'I am 25 years old', not 'I have 25 years').",
       });
     } else if (lower.includes("for to")) {
       setSimulatedFeedback({
         original: text,
         correction: text.replace(/for to/gi, "to"),
-        why: "Express purpose using 'to + verb' (e.g. 'to study'), never 'for to'.",
+        why:
+          selectedLang === "pt"
+            ? "Para expressar objetivo ou finalidade, use apenas 'to' + verbo base, nunca 'for to'."
+            : selectedLang === "es"
+            ? "Para expresar propósito, usa solo 'to' + verbo base, nunca 'for to'."
+            : "To express purpose, use just 'to' + base verb, never 'for to'.",
       });
-    } else if (lower.includes("more better") || lower.includes("more taller")) {
+    } else if (lower.includes("more better")) {
       setSimulatedFeedback({
         original: text,
-        correction: text.replace(/more better/gi, "better").replace(/more taller/gi, "taller"),
-        why: "Comparative adjectives don't take double comparatives ('more better' -> 'better').",
+        correction: text.replace(/more better/gi, "better"),
+        why:
+          selectedLang === "pt"
+            ? "Adjetivos comparativos irregulares como 'better' não recebem 'more'."
+            : selectedLang === "es"
+            ? "Los adjetivos comparativos irregulares como 'better' no admiten 'more'."
+            : "Comparative adjectives don't take double comparatives ('more better' -> 'better').",
       });
     } else {
       setSimulatedFeedback({
         original: text,
-        correction: `Great job! Your sentence is natural: "${text}"`,
-        why: "No grammatical mistakes found. Keep practicing!",
+        correction:
+          selectedLang === "pt"
+            ? `Muito bem! Sua frase soa natural: "${text}"`
+            : selectedLang === "es"
+            ? `¡Excelente! Tu frase es natural: "${text}"`
+            : `Great job! Your sentence is natural: "${text}"`,
+        why:
+          selectedLang === "pt"
+            ? "Nenhum erro gramatical identificado. Continue praticando!"
+            : selectedLang === "es"
+            ? "¡No se detectaron errores gramaticales! Sigue practicando."
+            : "No grammatical mistakes found. Keep practicing!",
       });
     }
   };
@@ -174,12 +174,6 @@ function LandingPage() {
     if (elem) {
       elem.scrollIntoView({ behavior: "smooth" });
     }
-  };
-
-  const handleSelectLanguage = (lang: "en" | "pt" | "es") => {
-    setSelectedLang(lang);
-    const names = { en: "English", pt: "Português (Brasil)", es: "Español" };
-    toast.success(`Language set to ${names[lang]}`);
   };
 
   return (
@@ -196,57 +190,103 @@ function LandingPage() {
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-[#2d1257]">
+          <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-[#2d1257]">
             <button
-              onClick={() => setIsBlogOpen(true)}
-              className="hover:text-purple-600 transition-colors cursor-pointer"
+              onClick={() => scrollToSection("practice")}
+              className="hover:text-purple-600 transition-colors cursor-pointer capitalize"
             >
-              blog
+              {t.nav.practice}
+            </button>
+            <button
+              onClick={() => scrollToSection("how-it-works")}
+              className="hover:text-purple-600 transition-colors cursor-pointer capitalize"
+            >
+              {t.nav.howItWorks}
             </button>
             <button
               onClick={() => scrollToSection("plans")}
-              className="hover:text-purple-600 transition-colors cursor-pointer"
+              className="hover:text-purple-600 transition-colors cursor-pointer capitalize"
             >
-              plans
+              {t.nav.plans}
             </button>
             <button
-              onClick={() => scrollToSection("practice")}
-              className="hover:text-purple-600 transition-colors cursor-pointer"
+              onClick={() => setIsBlogOpen(true)}
+              className="hover:text-purple-600 transition-colors cursor-pointer capitalize"
             >
-              practice
+              {t.nav.blog}
             </button>
             <button
               onClick={() => setIsFaqOpen(true)}
-              className="hover:text-purple-600 transition-colors cursor-pointer"
+              className="hover:text-purple-600 transition-colors cursor-pointer uppercase"
             >
-              faq
+              {t.nav.faq}
             </button>
             <button
               onClick={() => scrollToSection("contact")}
-              className="hover:text-purple-600 transition-colors cursor-pointer"
+              className="hover:text-purple-600 transition-colors cursor-pointer capitalize"
             >
-              contact
+              {t.nav.contact}
             </button>
           </nav>
 
-          {/* Header Action Buttons */}
-          <div className="flex items-center gap-2.5">
+          {/* Header Action Buttons & Language Switcher */}
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* Language Switcher Pills */}
+            <div className="hidden sm:flex items-center bg-purple-50/90 p-0.5 rounded-full border border-purple-200/70 text-[11px] font-bold">
+              <button
+                type="button"
+                onClick={() => handleSelectLanguage("en")}
+                className={`px-2 py-1 rounded-full transition-all cursor-pointer ${
+                  selectedLang === "en"
+                    ? "bg-[#240b4a] text-white shadow-xs"
+                    : "text-purple-900/80 hover:text-purple-950"
+                }`}
+                title="English"
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectLanguage("pt")}
+                className={`px-2 py-1 rounded-full transition-all cursor-pointer ${
+                  selectedLang === "pt"
+                    ? "bg-[#240b4a] text-white shadow-xs"
+                    : "text-purple-900/80 hover:text-purple-950"
+                }`}
+                title="Português"
+              >
+                PT
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectLanguage("es")}
+                className={`px-2 py-1 rounded-full transition-all cursor-pointer ${
+                  selectedLang === "es"
+                    ? "bg-[#240b4a] text-white shadow-xs"
+                    : "text-purple-900/80 hover:text-purple-950"
+                }`}
+                title="Español"
+              >
+                ES
+              </button>
+            </div>
+
             <Link
               to="/admin"
-              className="inline-flex items-center gap-1.5 rounded-full border border-purple-900/20 bg-purple-50/80 px-4 py-2 text-xs font-semibold text-[#1e0a45] transition-all hover:bg-purple-100 hover:border-purple-900/40 hover:scale-105 shadow-xs"
+              className="inline-flex items-center gap-1.5 rounded-full border border-purple-900/20 bg-purple-50/80 px-3 sm:px-4 py-2 text-xs font-semibold text-[#1e0a45] transition-all hover:bg-purple-100 hover:border-purple-900/40 hover:scale-105 shadow-xs"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-purple-700" />
-              <span>Admin</span>
+              <span>{t.nav.admin}</span>
             </Link>
 
             <a
               href={WHATSAPP_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#240b4a] to-[#170535] px-5 py-2.5 text-xs font-semibold text-white shadow-md shadow-purple-950/20 transition-all hover:scale-105 hover:shadow-purple-900/40"
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#240b4a] to-[#170535] px-4 sm:px-5 py-2.5 text-xs font-semibold text-white shadow-md shadow-purple-950/20 transition-all hover:scale-105 hover:shadow-purple-900/40"
             >
               <MessageCircle className="w-4 h-4 text-[#25D366]" />
-              <span className="hidden sm:inline">Chat on WhatsApp</span>
+              <span className="hidden sm:inline">{t.nav.chatOnWhatsApp}</span>
               <span className="sm:hidden">WhatsApp</span>
             </a>
 
@@ -265,47 +305,83 @@ function LandingPage() {
         {/* Mobile Dropdown Menu */}
         {isMobileMenuOpen && (
           <div className="md:hidden border-b border-purple-100 bg-white/98 px-6 py-4 space-y-3 shadow-lg animate-in slide-in-from-top-2">
+            {/* Mobile Language Selector */}
+            <div className="pb-3 border-b border-purple-100 flex items-center justify-between">
+              <span className="text-xs font-semibold text-[#1e0a45] flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 text-purple-700" /> Language:
+              </span>
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleSelectLanguage("en")}
+                  className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                    selectedLang === "en" ? "bg-[#240b4a] text-white" : "bg-purple-50 text-purple-900"
+                  }`}
+                >
+                  EN
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectLanguage("pt")}
+                  className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                    selectedLang === "pt" ? "bg-[#240b4a] text-white" : "bg-purple-50 text-purple-900"
+                  }`}
+                >
+                  PT
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectLanguage("es")}
+                  className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                    selectedLang === "es" ? "bg-[#240b4a] text-white" : "bg-purple-50 text-purple-900"
+                  }`}
+                >
+                  ES
+                </button>
+              </div>
+            </div>
+
             <button
               onClick={() => scrollToSection("practice")}
-              className="block w-full text-left py-2 text-sm font-semibold text-[#1e0a45] hover:text-purple-700"
+              className="block w-full text-left py-2 text-sm font-semibold text-[#1e0a45] hover:text-purple-700 capitalize"
             >
-              Practice
+              {t.nav.practice}
             </button>
             <button
               onClick={() => scrollToSection("how-it-works")}
-              className="block w-full text-left py-2 text-sm font-semibold text-[#1e0a45] hover:text-purple-700"
+              className="block w-full text-left py-2 text-sm font-semibold text-[#1e0a45] hover:text-purple-700 capitalize"
             >
-              How It Works
+              {t.nav.howItWorks}
             </button>
             <button
               onClick={() => scrollToSection("plans")}
-              className="block w-full text-left py-2 text-sm font-semibold text-[#1e0a45] hover:text-purple-700"
+              className="block w-full text-left py-2 text-sm font-semibold text-[#1e0a45] hover:text-purple-700 capitalize"
             >
-              Pricing & Plans
+              {t.nav.plans}
             </button>
             <button
               onClick={() => {
                 setIsMobileMenuOpen(false);
                 setIsBlogOpen(true);
               }}
-              className="block w-full text-left py-2 text-sm font-semibold text-[#1e0a45] hover:text-purple-700"
+              className="block w-full text-left py-2 text-sm font-semibold text-[#1e0a45] hover:text-purple-700 capitalize"
             >
-              Blog & Learning Tips
+              {t.nav.blog}
             </button>
             <button
               onClick={() => {
                 setIsMobileMenuOpen(false);
                 setIsFaqOpen(true);
               }}
-              className="block w-full text-left py-2 text-sm font-semibold text-[#1e0a45] hover:text-purple-700"
+              className="block w-full text-left py-2 text-sm font-semibold text-[#1e0a45] hover:text-purple-700 uppercase"
             >
-              FAQ
+              {t.nav.faq}
             </button>
             <button
               onClick={() => scrollToSection("contact")}
-              className="block w-full text-left py-2 text-sm font-semibold text-[#1e0a45] hover:text-purple-700"
+              className="block w-full text-left py-2 text-sm font-semibold text-[#1e0a45] hover:text-purple-700 capitalize"
             >
-              Contact
+              {t.nav.contact}
             </button>
           </div>
         )}
@@ -316,33 +392,37 @@ function LandingPage() {
         <div className="grid lg:grid-cols-12 gap-12 items-center">
           {/* Hero Left */}
           <div className="lg:col-span-7 space-y-6 text-left">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 text-purple-900 border border-purple-100 text-xs font-semibold">
+              <span>✨</span> {t.hero.badge}
+            </div>
+
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[#1e0a45] leading-[1.12]">
-              Chat in English <br />
-              everyday with <br />
+              {t.hero.titleLine1} <br />
+              {t.hero.titleLine2} <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#2a0b5a] via-[#521b96] to-[#2a0b5a]">
-                AI-powered <br />
-                instant feedback
+                {t.hero.titleHighlight1} <br />
+                {t.hero.titleHighlight2}
               </span>
             </h1>
 
             <p className="text-base sm:text-lg text-slate-600 max-w-lg font-normal leading-relaxed">
-              Find partners with similar interests and immerse yourself in English
+              {t.hero.subtitle}
             </p>
 
             <div className="pt-2 flex flex-wrap items-center gap-4">
               <a
-                href={getWhatsAppUrl("Hi! I want to practice English with Talk'n'Bit")}
+                href={WHATSAPP_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#240b4a] via-[#35106b] to-[#170535] px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-purple-950/25 transition-all hover:scale-105 hover:shadow-purple-900/40"
               >
-                Get Started
+                {t.hero.getStarted}
               </a>
               <button
                 onClick={() => scrollToSection("how-it-works")}
                 className="inline-flex items-center gap-1.5 px-5 py-3 text-sm font-medium text-purple-900 hover:text-purple-600 transition-colors cursor-pointer"
               >
-                See how it works <ArrowRight className="w-4 h-4" />
+                {t.hero.seeHowItWorks} <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -399,17 +479,17 @@ function LandingPage() {
                         className="font-semibold text-purple-700 bg-purple-100 hover:bg-purple-200 px-2.5 py-0.5 rounded-full transition-all active:scale-95 flex items-center gap-1 cursor-pointer"
                         title="Click to test the interactive explanation!"
                       >
-                        <span>Why? 💡</span>
+                        <span>{t.hero.whyButton}</span>
                         {showHeroWhy ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                       </button>
-                      <span className="text-slate-400">Instant AI</span>
+                      <span className="text-slate-400">{t.hero.instantAi}</span>
                     </div>
 
                     {/* Interactive Explanation Card Dropdown */}
                     {showHeroWhy && (
                       <div className="mt-2 pt-2 border-t border-amber-200/80 text-[10px] text-slate-700 space-y-1 bg-amber-100/50 p-2 rounded-xl animate-in fade-in slide-in-from-top-1">
-                        <p className="font-bold text-purple-950">Grammar Rule:</p>
-                        <p>In past simple negative with <em>didn't</em>, always use the base verb form (<em>go</em>, not <em>went</em>).</p>
+                        <p className="font-bold text-purple-950">{t.hero.grammarRuleTitle}</p>
+                        <p>{t.hero.grammarRuleHero}</p>
                         <p className="text-emerald-700 font-bold">✓ I didn't go</p>
                       </div>
                     )}
@@ -420,7 +500,7 @@ function LandingPage() {
                 {simulatedFeedback && (
                   <div className="bg-purple-50 border border-purple-200 text-[#1f0a44] text-[11px] p-2.5 rounded-xl animate-in fade-in slide-in-from-bottom-2 space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-purple-900">Live AI Evaluation:</span>
+                      <span className="font-semibold text-purple-900">{t.hero.liveAiEvaluation}</span>
                       <button onClick={() => setSimulatedFeedback(null)} className="text-slate-400 hover:text-slate-600">✕</button>
                     </div>
                     <p className="text-slate-800 font-medium">{simulatedFeedback.correction}</p>
@@ -431,7 +511,7 @@ function LandingPage() {
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-md hover:bg-emerald-200 transition-colors"
                     >
-                      <MessageCircle className="w-3 h-3" /> Practice on WhatsApp →
+                      <MessageCircle className="w-3 h-3" /> {t.hero.practiceOnWhatsApp}
                     </a>
                   </div>
                 )}
@@ -441,7 +521,7 @@ function LandingPage() {
               <form onSubmit={handleSimulate} className="relative z-10 flex items-center gap-1.5 pt-2">
                 <input
                   type="text"
-                  placeholder="Type an English sentence..."
+                  placeholder={t.hero.inputPlaceholder}
                   value={interactiveSentence}
                   onChange={(e) => setInteractiveSentence(e.target.value)}
                   className="w-full text-xs px-3 py-2 bg-white rounded-full border border-slate-200 focus:outline-none focus:border-purple-600 shadow-inner"
@@ -449,7 +529,7 @@ function LandingPage() {
                 <button
                   type="submit"
                   className="bg-[#240b4a] text-white p-2 rounded-full hover:bg-purple-800 shrink-0 shadow-sm cursor-pointer"
-                  title="Test correction"
+                  title="Test sentence"
                 >
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
@@ -462,7 +542,7 @@ function LandingPage() {
       {/* 3. Section: Experience English Immersion */}
       <section className="py-20 px-6 max-w-6xl mx-auto">
         <div className="grid lg:grid-cols-12 gap-12 items-center">
-          {/* Left: Woman Image with Yellow Star */}
+          {/* Left: Woman Image */}
           <div className="lg:col-span-6 flex justify-center">
             <div className="relative max-w-md w-full">
               <img
@@ -476,39 +556,39 @@ function LandingPage() {
           {/* Right: Content */}
           <div className="lg:col-span-6 space-y-8 text-left">
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#1e0a45]">
-              Experience English <br />
-              Immersion
+              {t.immersion.titleLine1} <br />
+              {t.immersion.titleLine2}
             </h2>
 
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <span className="text-[#fec84d] text-2xl leading-none">✨</span>
                 <span className="text-base sm:text-lg font-medium text-slate-800">
-                  No expensive costs
+                  {t.immersion.point1}
                 </span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-[#fec84d] text-2xl leading-none">✨</span>
                 <span className="text-base sm:text-lg font-medium text-slate-800">
-                  No extra apps needed
+                  {t.immersion.point2}
                 </span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-[#fec84d] text-2xl leading-none">✨</span>
                 <span className="text-base sm:text-lg font-medium text-slate-800">
-                  Real time feedback from AI
+                  {t.immersion.point3}
                 </span>
               </div>
             </div>
 
             <div>
               <a
-                href={getWhatsAppUrl("Hi! I want to start my English immersion with Talk'n'Bit")}
+                href={getWhatsAppUrl(t.whatsappMessages.immersion)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#240b4a] to-[#170535] px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-purple-950/25 transition-all hover:scale-105 hover:shadow-purple-900/40"
               >
-                Get Started
+                {t.immersion.cta}
               </a>
             </div>
           </div>
@@ -521,32 +601,31 @@ function LandingPage() {
           {/* Left: Copy */}
           <div className="lg:col-span-6 space-y-6 text-left">
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#1e0a45]">
-              Unlock <br />
-              Vocabulary
+              {t.vocabulary.titleLine1} <br />
+              {t.vocabulary.titleLine2}
             </h2>
 
             <p className="text-base sm:text-lg font-bold text-[#240b4a]">
-              Don't know how to say it?
+              {t.vocabulary.question}
             </p>
 
             <p className="text-slate-600 leading-relaxed text-base">
-              No more flipping through dictionaries. Our AI shows you instantly. Because when you
-              learn in context, it just clicks.
+              {t.vocabulary.description}
             </p>
 
             <div className="pt-2">
               <a
-                href={getWhatsAppUrl("Hi! I want to expand my English vocabulary with Talk'n'Bit")}
+                href={getWhatsAppUrl(t.whatsappMessages.vocab)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#240b4a] to-[#170535] px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-purple-950/25 transition-all hover:scale-105 hover:shadow-purple-900/40"
               >
-                Get Started
+                {t.vocabulary.cta}
               </a>
             </div>
           </div>
 
-          {/* Right: Phone Mockup with Portuguese translation & Interactive Why */}
+          {/* Right: Phone Mockup with Contextual translation & Interactive Why */}
           <div className="lg:col-span-6 flex justify-center">
             <div className="relative w-full max-w-[320px] aspect-[9/17] rounded-[42px] border-[7px] border-[#220c4e] bg-slate-50 shadow-2xl p-4 flex flex-col justify-between overflow-hidden">
               <div
@@ -564,10 +643,10 @@ function LandingPage() {
               </div>
 
               <div className="relative z-10 space-y-4 my-auto py-2">
-                {/* User sends Portuguese mix */}
+                {/* User sends mixed sentence */}
                 <div className="flex items-end justify-end gap-2">
                   <div className="bg-[#dcf8c6] text-[#0f2c14] text-xs px-3.5 py-2.5 rounded-2xl rounded-tr-none shadow-sm max-w-[200px] leading-snug">
-                    I need to revisar meu currículo.
+                    {t.vocabulary.userMixSentence}
                   </div>
                   <img
                     src="/images/student_woman.png"
@@ -585,27 +664,28 @@ function LandingPage() {
                   />
                   <div className="bg-[#fef9eb] border border-amber-200/60 text-[#1e0a45] text-xs px-3.5 py-2.5 rounded-2xl rounded-tl-none shadow-sm max-w-[215px] leading-snug space-y-1.5">
                     <p className="font-medium text-slate-800">
-                      You meant: <span className="text-purple-900 font-bold">"I need to review my resumé."</span>
+                      {t.vocabulary.botCorrectionPrefix}{" "}
+                      <span className="text-purple-900 font-bold">{t.vocabulary.botCorrection}</span>
                     </p>
                     <div className="pt-1 border-t border-amber-200/50 flex items-center justify-between text-[10px]">
-                      {/* Wired Interactive Why Button */}
+                      {/* Interactive Why Button */}
                       <button
                         type="button"
                         onClick={() => setShowVocabWhy(!showVocabWhy)}
                         className="font-semibold text-purple-700 bg-purple-100 hover:bg-purple-200 px-2.5 py-0.5 rounded-full transition-all active:scale-95 flex items-center gap-1 cursor-pointer"
                         title="Click to test the interactive explanation!"
                       >
-                        <span>Why? 💡</span>
+                        <span>{t.hero.whyButton}</span>
                         {showVocabWhy ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                       </button>
-                      <span className="text-slate-400">Context AI</span>
+                      <span className="text-slate-400">{t.vocabulary.contextAi}</span>
                     </div>
 
-                    {/* Interactive Explanation Card Dropdown */}
+                    {/* Interactive Explanation Dropdown */}
                     {showVocabWhy && (
                       <div className="mt-2 pt-2 border-t border-amber-200/80 text-[10px] text-slate-700 space-y-1 bg-amber-100/50 p-2 rounded-xl animate-in fade-in slide-in-from-top-1">
-                        <p className="font-bold text-purple-950">Contextual Vocabulary:</p>
-                        <p>In job contexts, <em>currículo</em> translates to <strong>resumé</strong> (US) or <strong>CV</strong> (UK). The verb <em>revisar</em> is <strong>to review</strong>.</p>
+                        <p className="font-bold text-purple-950">{t.vocabulary.vocabRuleTitle}</p>
+                        <p>{t.vocabulary.vocabRuleExplanation}</p>
                       </div>
                     )}
                   </div>
@@ -613,7 +693,7 @@ function LandingPage() {
               </div>
 
               <div className="relative z-10 text-center py-2 text-xs text-slate-400 font-medium">
-                Talk'n'Bit Instant Correction
+                {t.vocabulary.bottomTag}
               </div>
             </div>
           </div>
@@ -624,10 +704,10 @@ function LandingPage() {
       <section className="py-24 px-6 text-center bg-purple-50/50">
         <div className="max-w-4xl mx-auto space-y-1">
           <h3 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-[#1e0a45] leading-tight">
-            Connect. <br />
-            Chat. <br />
-            Learn English. <br />
-            All at your fingertips.
+            {t.transition1.line1} <br />
+            {t.transition1.line2} <br />
+            {t.transition1.line3} <br />
+            {t.transition1.line4}
           </h3>
         </div>
       </section>
@@ -638,43 +718,43 @@ function LandingPage() {
           {/* Left: Copy */}
           <div className="lg:col-span-6 space-y-8 text-left">
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#1e0a45]">
-              How it works
+              {t.howItWorks.title}
             </h2>
 
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <span className="text-[#fec84d] text-2xl leading-none">✨</span>
                 <span className="text-base sm:text-lg font-medium text-slate-800">
-                  Chat in groups or with your language partner
+                  {t.howItWorks.step1}
                 </span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-[#fec84d] text-2xl leading-none">✨</span>
                 <span className="text-base sm:text-lg font-medium text-slate-800">
-                  Receive correction
+                  {t.howItWorks.step2}
                 </span>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-[#fec84d] text-2xl leading-none">✨</span>
                 <span className="text-base sm:text-lg font-medium text-slate-800">
-                  Improve
+                  {t.howItWorks.step3}
                 </span>
               </div>
             </div>
 
             <div>
               <a
-                href={getWhatsAppUrl("Hi! I want to start chatting and getting instant corrections")}
+                href={getWhatsAppUrl(t.whatsappMessages.howItWorks)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#240b4a] to-[#170535] px-8 py-3.5 text-sm font-semibold text-white shadow-lg shadow-purple-950/25 transition-all hover:scale-105 hover:shadow-purple-900/40"
               >
-                Get Started
+                {t.howItWorks.cta}
               </a>
             </div>
           </div>
 
-          {/* Right: Man with Yellow Star Image */}
+          {/* Right: Man Image */}
           <div className="lg:col-span-6 flex justify-center">
             <div className="relative max-w-md w-full">
               <img
@@ -691,11 +771,10 @@ function LandingPage() {
       <section className="py-20 px-6 max-w-6xl mx-auto text-center">
         <div className="max-w-3xl mx-auto space-y-4">
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#1e0a45]">
-            Why it works
+            {t.whyItWorks.title}
           </h2>
           <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
-            Learning English through conversation and instant feedback isn't just convenient. Our
-            methodologies are scientifically proven to be effective. Here's why our method delivers real results:
+            {t.whyItWorks.subtitle}
           </p>
         </div>
 
@@ -703,40 +782,40 @@ function LandingPage() {
           {/* Card 1 */}
           <div className="bg-[#fef9eb] border border-amber-200/50 rounded-2xl p-6 space-y-3 shadow-sm hover:shadow-md transition-shadow">
             <h4 className="font-bold text-[#1f0a44] text-base leading-snug">
-              Mistakes accelerate learning
+              {t.whyItWorks.card1Title}
             </h4>
             <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
-              Studies show that making errors and receiving feedback right after strengthens memory and understanding.
+              {t.whyItWorks.card1Desc}
             </p>
           </div>
 
           {/* Card 2 */}
           <div className="bg-[#fef9eb] border border-amber-200/50 rounded-2xl p-6 space-y-3 shadow-sm hover:shadow-md transition-shadow">
             <h4 className="font-bold text-[#1f0a44] text-base leading-snug">
-              Immediate feedback means deeper learning
+              {t.whyItWorks.card2Title}
             </h4>
             <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
-              Your brain learns best when it gets corrections in the moment. That's why our system sends feedback instantly via WhatsApp.
+              {t.whyItWorks.card2Desc}
             </p>
           </div>
 
           {/* Card 3 */}
           <div className="bg-[#fef9eb] border border-amber-200/50 rounded-2xl p-6 space-y-3 shadow-sm hover:shadow-md transition-shadow">
             <h4 className="font-bold text-[#1f0a44] text-base leading-snug">
-              Daily, bite-sized practice beats long study sessions
+              {t.whyItWorks.card3Title}
             </h4>
             <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
-              Practicing a little every day is more effective than cramming. Our WhatsApp-based model fits naturally into your routine.
+              {t.whyItWorks.card3Desc}
             </p>
           </div>
 
           {/* Card 4 */}
           <div className="bg-[#fef9eb] border border-amber-200/50 rounded-2xl p-6 space-y-3 shadow-sm hover:shadow-md transition-shadow">
             <h4 className="font-bold text-[#1f0a44] text-base leading-snug">
-              Personalized, autonomous learning
+              {t.whyItWorks.card4Title}
             </h4>
             <p className="text-xs sm:text-sm text-slate-700 leading-relaxed">
-              You're in control. Our AI gives feedback tailored to your messages, at your pace, boosting confidence and motivation.
+              {t.whyItWorks.card4Desc}
             </p>
           </div>
         </div>
@@ -746,9 +825,9 @@ function LandingPage() {
       <section className="py-24 px-6 text-center bg-purple-50/50">
         <div className="max-w-4xl mx-auto">
           <h3 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-[#1e0a45] leading-tight">
-            Real conversations. <br />
-            Real English. <br />
-            Real progress.
+            {t.transition2.line1} <br />
+            {t.transition2.line2} <br />
+            {t.transition2.line3}
           </h3>
         </div>
       </section>
@@ -758,7 +837,7 @@ function LandingPage() {
         <div className="max-w-6xl mx-auto space-y-12">
           <div>
             <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white">
-              Plans
+              {t.plans.title}
             </h2>
           </div>
 
@@ -767,26 +846,26 @@ function LandingPage() {
             {/* Monthly */}
             <div className="bg-white text-[#1f0a44] rounded-3xl p-8 flex flex-col justify-between shadow-2xl border border-white/20 transition-transform hover:-translate-y-1">
               <div>
-                <h4 className="text-sm font-semibold text-slate-600">Monthly plan</h4>
+                <h4 className="text-sm font-semibold text-slate-600">{t.plans.monthlyTitle}</h4>
                 <div className="mt-4">
                   <span className="text-4xl sm:text-5xl font-extrabold tracking-tight text-[#1f0a44]">
-                    BRL 36
+                    {t.plans.monthlyPrice}
                   </span>
-                  <span className="block text-xs text-slate-500 font-medium mt-1">per month</span>
+                  <span className="block text-xs text-slate-500 font-medium mt-1">{t.plans.perMonth}</span>
                 </div>
                 <div className="mt-4 text-xs text-slate-600 space-y-0.5 font-medium">
-                  <p>Paid monthly.</p>
-                  <p>Total annual cost: BRL 432</p>
+                  <p>{t.plans.monthlyBilling}</p>
+                  <p>{t.plans.monthlyAnnualTotal}</p>
                 </div>
               </div>
               <div className="mt-8 pt-6 border-t border-slate-100">
                 <a
-                  href={getWhatsAppUrl("Hi! I want to subscribe to the Talk'n'Bit Monthly plan (BRL 36/mo)")}
+                  href={getWhatsAppUrl(t.whatsappMessages.monthly)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block w-full py-3 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-[#1f0a44] hover:bg-slate-200 transition-colors"
                 >
-                  Get Monthly
+                  {t.plans.getMonthly}
                 </a>
               </div>
             </div>
@@ -794,31 +873,31 @@ function LandingPage() {
             {/* Semiannual */}
             <div className="bg-white text-[#1f0a44] rounded-3xl p-8 flex flex-col justify-between shadow-2xl border border-white/20 transition-transform hover:-translate-y-1">
               <div>
-                <h4 className="text-sm font-semibold text-slate-600">Semiannual plan</h4>
+                <h4 className="text-sm font-semibold text-slate-600">{t.plans.semiTitle}</h4>
                 <div className="mt-4">
                   <span className="text-4xl sm:text-5xl font-extrabold tracking-tight text-[#1f0a44]">
-                    BRL 29
+                    {t.plans.semiPrice}
                   </span>
-                  <span className="block text-xs text-slate-500 font-medium mt-1">per month</span>
+                  <span className="block text-xs text-slate-500 font-medium mt-1">{t.plans.perMonth}</span>
                 </div>
                 <div className="mt-4 text-xs text-slate-600 space-y-0.5 font-medium">
-                  <p>Paid semiannually.</p>
-                  <p>Total annual cost: BRL 348</p>
+                  <p>{t.plans.semiBilling}</p>
+                  <p>{t.plans.semiAnnualTotal}</p>
                 </div>
                 <div className="mt-3">
                   <span className="inline-block text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">
-                    Save R$84 (20%)
+                    {t.plans.save20}
                   </span>
                 </div>
               </div>
               <div className="mt-8 pt-6 border-t border-slate-100">
                 <a
-                  href={getWhatsAppUrl("Hi! I want to subscribe to the Talk'n'Bit Semiannual plan (BRL 29/mo)")}
+                  href={getWhatsAppUrl(t.whatsappMessages.semi)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block w-full py-3 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-[#1f0a44] hover:bg-slate-200 transition-colors"
                 >
-                  Get Semiannual
+                  {t.plans.getSemi}
                 </a>
               </div>
             </div>
@@ -826,34 +905,34 @@ function LandingPage() {
             {/* Yearly (Highlighted in Green) */}
             <div className="bg-white text-[#1f0a44] rounded-3xl p-8 flex flex-col justify-between shadow-2xl border-2 border-emerald-400 relative transition-transform hover:-translate-y-1">
               <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full shadow-md">
-                Best Value
+                {t.plans.bestValue}
               </div>
               <div>
-                <h4 className="text-sm font-semibold text-slate-600">Yearly plan</h4>
+                <h4 className="text-sm font-semibold text-slate-600">{t.plans.yearlyTitle}</h4>
                 <div className="mt-4">
                   <span className="text-4xl sm:text-5xl font-extrabold tracking-tight text-emerald-600">
-                    BRL 21
+                    {t.plans.yearlyPrice}
                   </span>
-                  <span className="block text-xs text-slate-500 font-medium mt-1">per month</span>
+                  <span className="block text-xs text-slate-500 font-medium mt-1">{t.plans.perMonth}</span>
                 </div>
                 <div className="mt-4 text-xs text-slate-600 space-y-0.5 font-medium">
-                  <p>Paid yearly.</p>
-                  <p>Total annual cost: BRL 252</p>
+                  <p>{t.plans.yearlyBilling}</p>
+                  <p>{t.plans.yearlyAnnualTotal}</p>
                 </div>
                 <div className="mt-3">
                   <span className="inline-block text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">
-                    Save R$180 (40%)
+                    {t.plans.save40}
                   </span>
                 </div>
               </div>
               <div className="mt-8 pt-6 border-t border-slate-100">
                 <a
-                  href={getWhatsAppUrl("Hi! I want to subscribe to the Talk'n'Bit Yearly plan (BRL 21/mo - Best Value)")}
+                  href={getWhatsAppUrl(t.whatsappMessages.yearly)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block w-full py-3 rounded-full text-xs font-bold uppercase tracking-wider bg-[#240b4a] text-white hover:bg-purple-900 transition-colors shadow-md"
                 >
-                  Get Yearly
+                  {t.plans.getYearly}
                 </a>
               </div>
             </div>
@@ -863,7 +942,7 @@ function LandingPage() {
           <div className="pt-6 space-y-6">
             <div className="inline-flex items-center gap-2 text-white/90 text-sm font-semibold">
               <Award className="w-5 h-5 text-[#fec84d]" />
-              <span>15-day money-back guarantee</span>
+              <span>{t.plans.guarantee}</span>
             </div>
 
             <div>
@@ -872,7 +951,7 @@ function LandingPage() {
                 onClick={() => scrollToSection("plans")}
                 className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#240b4a] via-[#481885] to-[#170535] border border-white/20 px-10 py-3.5 text-sm font-semibold text-white shadow-xl shadow-purple-950/50 transition-all hover:scale-105 hover:border-white/40 cursor-pointer"
               >
-                Choose a plan
+                {t.plans.choosePlan}
               </button>
             </div>
           </div>
@@ -899,7 +978,7 @@ function LandingPage() {
                   <Globe className="w-4 h-4" />
                 </a>
                 <a
-                  href={getWhatsAppUrl("Hi! I have a question about Talk'n'Bit")}
+                  href={getWhatsAppUrl(t.whatsappMessages.contact)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-8 h-8 rounded-full border border-[#1f0a44]/30 flex items-center justify-center hover:bg-black/10 transition-colors"
@@ -940,77 +1019,77 @@ function LandingPage() {
                 Español {selectedLang === "es" && "✓"}
               </button>
               <a
-                href={getWhatsAppUrl("Hi! I want to start my free English practice session")}
+                href={getWhatsAppUrl(t.whatsappMessages.freePractice)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block hover:underline pt-1 text-[#1e0a45] font-semibold"
               >
-                Free English Practice →
+                {t.footer.freePractice}
               </a>
             </div>
 
             {/* Col 3: Lessons, Blog, FAQ, Trial */}
             <div className="space-y-2.5 text-xs sm:text-sm font-medium">
               <a
-                href={getWhatsAppUrl("Hi! I'd like to book an English practice session")}
+                href={getWhatsAppUrl(t.whatsappMessages.lesson)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block hover:underline"
               >
-                Book a Lesson
+                {t.footer.bookLesson}
               </a>
               <button
                 type="button"
                 onClick={() => setIsBlogOpen(true)}
                 className="block text-left hover:underline cursor-pointer"
               >
-                Blog & Learning Tips
+                {t.footer.blogTips}
               </button>
               <button
                 type="button"
                 onClick={() => setIsFaqOpen(true)}
                 className="block text-left hover:underline cursor-pointer"
               >
-                FAQ
+                {t.footer.faq}
               </button>
               <a
-                href={getWhatsAppUrl("Hi! I'd like to activate my One-Day Free Trial")}
+                href={getWhatsAppUrl(t.whatsappMessages.trial)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block hover:underline text-[#1e0a45] font-semibold"
               >
-                One-Day Free Trial →
+                {t.footer.trial}
               </a>
             </div>
 
             {/* Col 4: Terms, Privacy, Contact, Admin Portal */}
             <div className="space-y-2.5 text-xs sm:text-sm font-medium">
-              <Link to="/privacy" className="block hover:underline">
-                Terms of Use
+              <Link to="/terms" className="block hover:underline">
+                {t.footer.terms}
               </Link>
               <Link to="/privacy" className="block hover:underline">
-                About & Privacy
+                {t.footer.privacy}
               </Link>
               <a
-                href={getWhatsAppUrl("Hi! I'd like to contact the Talk'n'Bit team")}
+                href={getWhatsAppUrl(t.whatsappMessages.contact)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block hover:underline"
               >
-                Contact via WhatsApp
+                {t.footer.contactWa}
               </a>
               <a href="mailto:support@talknbit.com" className="block text-[11px] text-[#1e0a45]/80 hover:underline">
                 support@talknbit.com
               </a>
               <Link to="/admin" className="block text-purple-950/90 hover:text-purple-950 underline font-bold pt-1">
-                Admin Portal →
+                {t.footer.adminPortal}
               </Link>
             </div>
           </div>
 
           {/* Copyright */}
           <div className="mt-16 pt-8 border-t border-[#1f0a44]/15 text-center text-xs text-[#1f0a44]/80 font-medium">
-            Copyright © 2025 Talk'n'Bit All rights reserved.
+            {t.footer.copyright}
           </div>
         </div>
       </footer>
@@ -1026,8 +1105,8 @@ function LandingPage() {
                   <HelpCircle className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-[#1e0a45]">Frequently Asked Questions</h3>
-                  <p className="text-xs text-slate-500">Everything you need to know about Talk'n'Bit</p>
+                  <h3 className="text-base font-bold text-[#1e0a45]">{t.faqModal.title}</h3>
+                  <p className="text-xs text-slate-500">{t.faqModal.subtitle}</p>
                 </div>
               </div>
               <button
@@ -1041,7 +1120,7 @@ function LandingPage() {
 
             {/* Accordion Content */}
             <div className="p-6 overflow-y-auto space-y-3 divide-y divide-purple-50">
-              {FAQ_ITEMS.map((item, idx) => {
+              {t.faqModal.items.map((item, idx) => {
                 const isOpen = openFaqIndex === idx;
                 return (
                   <div key={idx} className="pt-3 first:pt-0">
@@ -1065,14 +1144,14 @@ function LandingPage() {
 
             {/* Modal Footer */}
             <div className="px-6 py-4 bg-purple-50/50 border-t border-purple-100 flex items-center justify-between">
-              <span className="text-xs text-slate-500">Have a different question?</span>
+              <span className="text-xs text-slate-500">{t.faqModal.differentQuestion}</span>
               <a
-                href={getWhatsAppUrl("Hi! I have a question that isn't in the FAQ")}
+                href={getWhatsAppUrl(t.whatsappMessages.faq)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-full bg-[#240b4a] px-4 py-2 text-xs font-semibold text-white hover:bg-purple-900 transition-all"
               >
-                <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" /> Ask on WhatsApp
+                <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" /> {t.faqModal.askWa}
               </a>
             </div>
           </div>
@@ -1090,8 +1169,8 @@ function LandingPage() {
                   <BookOpen className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-[#1e0a45]">Talk'n'Bit Blog & Learning Guides</h3>
-                  <p className="text-xs text-slate-500">Proven tips and science-backed methods for English fluency</p>
+                  <h3 className="text-base font-bold text-[#1e0a45]">{t.blogModal.title}</h3>
+                  <p className="text-xs text-slate-500">{t.blogModal.subtitle}</p>
                 </div>
               </div>
               <button
@@ -1105,7 +1184,7 @@ function LandingPage() {
 
             {/* Articles List */}
             <div className="p-6 overflow-y-auto space-y-4">
-              {BLOG_POSTS.map((post, idx) => (
+              {t.blogModal.posts.map((post, idx) => (
                 <article
                   key={idx}
                   className="rounded-2xl border border-purple-100 p-5 bg-purple-50/30 hover:bg-purple-50/70 transition-all space-y-2"
@@ -1129,7 +1208,7 @@ function LandingPage() {
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 hover:text-purple-950 transition-colors"
                     >
-                      Discuss on WhatsApp <ArrowRight className="w-3.5 h-3.5" />
+                      {t.blogModal.discussWa} <ArrowRight className="w-3.5 h-3.5" />
                     </a>
                   </div>
                 </article>
@@ -1138,14 +1217,14 @@ function LandingPage() {
 
             {/* Modal Footer */}
             <div className="px-6 py-4 bg-purple-50/50 border-t border-purple-100 flex items-center justify-between">
-              <span className="text-xs text-slate-500">Ready to put theory into practice?</span>
+              <span className="text-xs text-slate-500">{t.blogModal.readyPrompt}</span>
               <a
                 href={WHATSAPP_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-full bg-[#240b4a] px-4 py-2 text-xs font-semibold text-white hover:bg-purple-900 transition-all"
               >
-                Start Practicing Free
+                {t.blogModal.startFree}
               </a>
             </div>
           </div>

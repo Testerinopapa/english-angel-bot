@@ -137,18 +137,34 @@ function RootComponent() {
 
 function Footer() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  if (pathname === "/") return null;
+  // Suppress fallback footer on pages that provide their own custom footers or full-screen dashboard
+  if (
+    pathname === "/" ||
+    pathname === "/privacy" ||
+    pathname === "/terms" ||
+    pathname.startsWith("/admin")
+  ) {
+    return null;
+  }
 
   return (
     <footer className="border-t border-border/60 bg-background py-6">
       <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-2 px-5 text-xs text-muted-foreground sm:flex-row">
-        <span>English Buddy Bot</span>
-        <Link
-          to="/privacy"
-          className="underline underline-offset-4 transition-colors hover:text-foreground"
-        >
-          Privacy Policy
-        </Link>
+        <span>Talk'n'Bit</span>
+        <div className="flex items-center gap-4">
+          <Link
+            to="/terms"
+            className="underline underline-offset-4 transition-colors hover:text-foreground"
+          >
+            Terms of Service
+          </Link>
+          <Link
+            to="/privacy"
+            className="underline underline-offset-4 transition-colors hover:text-foreground"
+          >
+            Privacy Policy
+          </Link>
+        </div>
       </div>
     </footer>
   );
