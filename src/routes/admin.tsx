@@ -546,86 +546,6 @@ function Dashboard({ email }: { email: string }) {
               />
             </div>
 
-            {/* Meta & AI Cards */}
-            <div className="grid gap-6 md:grid-cols-2">
-              {/* WhatsApp Meta Config */}
-              <div className="rounded-3xl border border-purple-100/90 bg-white p-6 shadow-sm space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-purple-50">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">💬</span>
-                    <h2 className="text-base font-bold text-[#1e0a45]">WhatsApp (Meta Cloud API)</h2>
-                  </div>
-                  <StatusPill tone={metaReady ? "ok" : "warn"}>
-                    {metaReady ? "Configured" : "Incomplete"}
-                  </StatusPill>
-                </div>
-
-                <ul className="space-y-2.5 text-xs">
-                  <ConfigRow label="System User Access Token" ok={meta?.accessToken} />
-                  <ConfigRow label="Phone Number ID" ok={meta?.phoneNumberId} />
-                  <ConfigRow label="Webhook Verify Token" ok={meta?.verifyToken} />
-                  <ConfigRow label="App Secret (HMAC signature)" ok={meta?.appSecret} optional />
-                </ul>
-
-                <div className="mt-4 rounded-2xl bg-purple-50/60 border border-purple-100/70 p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[11px] font-semibold text-purple-950">Webhook Callback URL</p>
-                    <button
-                      type="button"
-                      onClick={copyWebhook}
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-purple-700 hover:text-purple-900 transition-colors"
-                    >
-                      {copiedWebhook ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-emerald-600" /> Copied!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" /> Copy
-                        </>
-                      )}
-                    </button>
-                  </div>
-                  <code className="block text-[11px] font-mono break-all text-purple-900/80 bg-white/80 p-2 rounded-lg border border-purple-200/50">
-                    {webhookUrl()}
-                  </code>
-                </div>
-              </div>
-
-              {/* AI Engine Config */}
-              <div className="rounded-3xl border border-purple-100/90 bg-white p-6 shadow-sm space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-purple-50">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">🤖</span>
-                    <h2 className="text-base font-bold text-[#1e0a45]">AI Correction Engine</h2>
-                  </div>
-                  <StatusPill tone={aiReady ? "ok" : "bad"}>
-                    {aiReady ? "Configured" : "Missing API Key"}
-                  </StatusPill>
-                </div>
-
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center justify-between py-1.5 border-b border-slate-50">
-                    <span className="text-slate-600">Active Model Provider</span>
-                    <span className="font-mono font-semibold text-purple-900 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
-                      {aiLabel}
-                    </span>
-                  </div>
-                </div>
-
-                <p className="text-xs text-slate-500 leading-relaxed pt-2">
-                  Every incoming WhatsApp message is evaluated for grammatical and vocabulary errors. When a mistake is detected, Talk'n'Bit sends a private, helpful correction with an interactive <strong>Why? 💡</strong> explanation button.
-                </p>
-
-                <div className="rounded-2xl bg-[#fef9eb] border border-amber-200/60 p-3.5 flex items-center gap-3">
-                  <span className="text-amber-600 text-lg">💡</span>
-                  <p className="text-[11px] text-amber-950 font-medium">
-                    Corrections are only sent when real errors occur, keeping student conversations natural and motivating.
-                  </p>
-                </div>
-              </div>
-            </div>
-
             {/* Recent Messages Quick Preview */}
             <div className="rounded-3xl border border-purple-100/90 bg-white p-6 shadow-sm space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-purple-50">
@@ -1123,6 +1043,40 @@ function Dashboard({ email }: { email: string }) {
                 onCheckedChange={(checked) => mutation.mutate({ store_message_content: checked })}
               />
             </div>
+
+            {/* WhatsApp Webhook Callback URL */}
+            <div className="rounded-3xl border border-purple-100/90 bg-white p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-purple-50">
+                <div>
+                  <h3 className="text-base font-bold text-[#1e0a45]">WhatsApp Webhook Configuration</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Configure this callback URL in your Meta for Developers App Dashboard (WhatsApp &gt; Configuration)
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={copyWebhook}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-purple-200 bg-purple-50 px-3.5 py-1.5 text-xs font-semibold text-purple-950 hover:bg-purple-100 transition-colors"
+                >
+                  {copiedWebhook ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" /> Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-purple-700" /> Copy URL
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-600">Callback URL</Label>
+                <code className="block text-xs font-mono break-all text-purple-950 bg-purple-50/50 p-3 rounded-xl border border-purple-100/70">
+                  {webhookUrl()}
+                </code>
+              </div>
+            </div>
           </TabsContent>
           {/* Tab 4: Subscribers & Paywall */}
           <TabsContent value="subscribers" className="space-y-6 mt-0">
@@ -1431,25 +1385,6 @@ function StatCard({
         {value}
       </p>
     </div>
-  );
-}
-
-function ConfigRow({
-  label,
-  ok,
-  optional,
-}: {
-  label: string;
-  ok?: boolean | undefined;
-  optional?: boolean | undefined;
-}) {
-  return (
-    <li className="flex items-center justify-between gap-3 py-1.5 border-b border-slate-50 last:border-0">
-      <span className="text-slate-600 font-medium">{label}</span>
-      <StatusPill tone={ok ? "ok" : optional ? "idle" : "warn"}>
-        {ok ? "Configured" : optional ? "Optional" : "Missing"}
-      </StatusPill>
-    </li>
   );
 }
 
