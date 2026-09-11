@@ -69,7 +69,7 @@ function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "semi" | "yearly">("yearly");
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
-  const handleSelectPlan = (plan: "monthly" | "semi" | "yearly") => {
+  const handleSelectPlan = (plan: "trial" | "monthly" | "semi" | "yearly") => {
     navigate({
       to: "/checkout",
       search: { plan } as any,
@@ -182,6 +182,47 @@ function PricingPage() {
                   40% OFF
                 </span>
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* 15-Day Free Trial Spotlight Card */}
+        <div className="max-w-5xl mx-auto rounded-3xl bg-gradient-to-r from-[#2a0b58] via-[#43147f] to-[#1e0740] p-6 sm:p-8 text-white shadow-2xl relative overflow-hidden border border-purple-400/30">
+          <div className="absolute -right-12 -top-12 w-64 h-64 bg-amber-400/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+            <div className="space-y-2 text-center md:text-left">
+              <div className="inline-flex items-center gap-2 bg-[#fec84d] text-[#1f0a44] px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider shadow-xs">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{t.pricing.trialBadge}</span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                {t.pricing.trialPlanName} — {t.pricing.trialPrice} {t.pricing.trialPeriod}
+              </h3>
+              <p className="text-xs sm:text-sm text-purple-200/90 max-w-xl">
+                {t.pricing.trialDesc}
+              </p>
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 pt-1 text-xs text-purple-200">
+                <span className="inline-flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-[#fec84d]" />
+                  {t.pricing.trialPhoneNotice}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-[#fec84d]" />
+                  Instant WhatsApp Activation
+                </span>
+              </div>
+            </div>
+
+            <div className="shrink-0 w-full md:w-auto">
+              <Button
+                type="button"
+                size="lg"
+                onClick={() => handleSelectPlan("trial")}
+                className="w-full md:w-auto rounded-full bg-[#fec84d] hover:bg-[#fed36c] text-[#1f0a44] font-black text-sm px-8 py-3.5 shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <span>{t.pricing.trialCta}</span>
+                <ArrowRight className="w-4 h-4" />
+              </Button>
             </div>
           </div>
         </div>

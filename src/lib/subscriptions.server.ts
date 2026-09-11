@@ -29,8 +29,9 @@ export type EntitlementResult = {
   reason?: "trial_expired" | "message_limit_exceeded" | "subscription_expired";
 };
 
-export const TRIAL_MESSAGE_LIMIT = 15;
-export const TRIAL_DURATION_HOURS = 24;
+export const TRIAL_DURATION_DAYS = 15;
+export const TRIAL_DURATION_HOURS = 24 * TRIAL_DURATION_DAYS; // 15 Days (360 hours)
+export const TRIAL_MESSAGE_LIMIT = 1000; // Unlimited / generous cap for 15-day trial
 
 /** Canonicalize phone number to digits only: +55 (13) 99187-8104 -> 5513991878104 */
 export function normalizePhoneNumber(rawPhone: string): string {
@@ -352,13 +353,21 @@ export async function activateSubscription(
 
   let updatedRow: SubscriberRow | null = null;
 
+  const targetStatus: SubscriberStatus = plan === "free_trial" ? "trial" : "active";
+
   if (targetId) {
     const { data, error } = await supabaseAdmin
       .from("subscribers")
       .update({
-        status: "active",
+        status: targetStatus,
         plan,
         subscription_ends_at: endsAt ? endsAt.toISOString() : null,
+        ...(plan === "free_trial"
+          ? {
+              trial_started_at: now.toISOString(),
+              trial_ends_at: endsAt ? endsAt.toISOString() : null,
+            }
+          : {}),
         messages_count: currentCount,
         updated_at: now.toISOString(),
         ...(notes ? { notes } : {}),
@@ -380,9 +389,11 @@ export async function activateSubscription(
       .from("subscribers")
       .insert({
         phone_number: targetPhone,
-        status: "active",
+        status: targetStatus,
         plan,
         subscription_ends_at: endsAt ? endsAt.toISOString() : null,
+        trial_started_at: now.toISOString(),
+        trial_ends_at: endsAt ? endsAt.toISOString() : now.toISOString(),
         messages_count: 0,
         updated_at: now.toISOString(),
         ...(notes ? { notes } : {}),
@@ -404,9 +415,9 @@ export async function activateSubscription(
 export function formatPaywallCard(reason?: "trial_expired" | "message_limit_exceeded" | "subscription_expired"): string {
   const headline =
     reason === "trial_expired"
-      ? "⏱️ *Your 24-Hour Free Trial Has Ended*"
+      ? "⏱️ *Your 15-Day Free Trial Has Ended*"
       : reason === "message_limit_exceeded"
-        ? "🎯 *You've Used Your 15 Free Trial Messages*"
+        ? "🎯 *Your Free Trial Access Has Concluded*"
         : "🔒 *Talk'n'Bit Premium Membership Required*";
 
   return [

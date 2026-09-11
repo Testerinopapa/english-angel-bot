@@ -107,6 +107,22 @@ function CheckoutPage() {
 
   // Price calculations
   const planInfo = useMemo(() => {
+    if (plan === "trial") {
+      return {
+        id: "trial",
+        name: t.pricing.trialPlanName,
+        billingCycle: "15 Days Free Access (1 WhatsApp Phone)",
+        regularPrice: 0,
+        regularPriceFormatted: "R$ 0,00",
+        price: 0,
+        priceFormatted: "R$ 0,00",
+        discountFormatted: "100% FREE",
+        total: 0,
+        totalFormatted: "R$ 0,00",
+        periodText: "/ 15 days",
+        badge: t.pricing.trialBadge,
+      };
+    }
     if (plan === "monthly") {
       return {
         id: "monthly",
@@ -201,6 +217,25 @@ function CheckoutPage() {
       return;
     }
 
+    if (plan !== "trial" && paymentMethod === "credit_card") {
+      if (cardNumber.replace(/\s/g, "").length < 13) {
+        toast.error("Please enter a valid credit card number");
+        return;
+      }
+      if (!cardName.trim()) {
+        toast.error("Please enter the cardholder name");
+        return;
+      }
+      if (cardExpiry.length < 5) {
+        toast.error("Please enter a valid expiry date (MM/YY)");
+        return;
+      }
+      if (cardCvv.length < 3) {
+        toast.error("Please enter a valid CVV");
+        return;
+      }
+    }
+
     const fullPhoneNumber = countryCode + cleanDigits;
 
     setIsSubmitting(true);
@@ -211,7 +246,7 @@ function CheckoutPage() {
           name: name.trim(),
           email: email.trim(),
           plan,
-          paymentMethod,
+          paymentMethod: plan === "trial" ? "free_trial" : paymentMethod,
           installments,
           countryCode,
         },
@@ -321,8 +356,15 @@ function CheckoutPage() {
 
               {/* WhatsApp Phone Number with Country Code */}
               <div className="space-y-1.5">
-                <Label htmlFor="phone" className="text-xs font-semibold text-slate-700">
-                  {t.checkout.whatsappLabel} <span className="text-rose-500">*</span>
+                <Label htmlFor="phone" className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                  <span>
+                    {t.checkout.whatsappLabel} <span className="text-rose-500">*</span>
+                  </span>
+                  {plan === "trial" && (
+                    <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full">
+                      1 Phone Limit
+                    </span>
+                  )}
                 </Label>
                 <div className="flex gap-2">
                   <select
@@ -390,9 +432,29 @@ function CheckoutPage() {
                 <span className="w-6 h-6 rounded-full bg-purple-100 text-purple-900 flex items-center justify-center text-xs font-black">
                   2
                 </span>
-                <span>{t.checkout.step2Title}</span>
+                <span>{plan === "trial" ? t.checkout.trialStep2Title : t.checkout.step2Title}</span>
               </h2>
 
+              {plan === "trial" ? (
+                /* Free Trial Zero-Payment Card */
+                <div className="rounded-2xl border-2 border-dashed border-emerald-300 bg-emerald-50/70 p-6 sm:p-8 text-center space-y-4">
+                  <div className="w-12 h-12 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center mx-auto text-emerald-800 shadow-2xs">
+                    <Sparkles className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-base sm:text-lg font-black text-emerald-950">
+                      {t.checkout.trialNoPaymentNeeded}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-emerald-800 leading-relaxed max-w-md mx-auto">
+                      {t.checkout.trialStep2Desc}
+                    </p>
+                  </div>
+                  <div className="inline-flex items-center gap-2 bg-white px-4 py-1.5 rounded-full border border-emerald-200 text-xs font-bold text-emerald-900 shadow-2xs">
+                    <span>{t.checkout.trialOnePhoneAlert}</span>
+                  </div>
+                </div>
+              ) : (
+                <>
               {/* Payment Tabs */}
               <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-purple-50/80 border border-purple-100">
                 <button
@@ -562,6 +624,8 @@ function CheckoutPage() {
                   </div>
                 </div>
               )}
+                </>
+              )}
             </div>
           </div>
 
@@ -578,11 +642,22 @@ function CheckoutPage() {
               {/* Plan Switcher Pills */}
               <div className="space-y-2">
                 <span className="text-xs font-bold text-slate-500">{t.checkout.switchPlanLabel}</span>
-                <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-purple-50 border border-purple-100">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 rounded-xl bg-purple-50 border border-purple-100">
+                  <button
+                    type="button"
+                    onClick={() => setPlan("trial")}
+                    className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                      plan === "trial"
+                        ? "bg-emerald-700 text-white shadow-xs"
+                        : "text-emerald-800 hover:text-emerald-950 bg-emerald-50/50"
+                    }`}
+                  >
+                    Trial (15d)
+                  </button>
                   <button
                     type="button"
                     onClick={() => setPlan("monthly")}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                       plan === "monthly"
                         ? "bg-[#240b4a] text-white shadow-xs"
                         : "text-purple-900/70 hover:text-purple-950"
@@ -593,24 +668,24 @@ function CheckoutPage() {
                   <button
                     type="button"
                     onClick={() => setPlan("semi")}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                       plan === "semi"
                         ? "bg-[#240b4a] text-white shadow-xs"
                         : "text-purple-900/70 hover:text-purple-950"
                     }`}
                   >
-                    Semiannual
+                    Semi (20%)
                   </button>
                   <button
                     type="button"
                     onClick={() => setPlan("yearly")}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    className={`py-1.5 px-2 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                       plan === "yearly"
                         ? "bg-[#240b4a] text-white shadow-xs"
                         : "text-purple-900/70 hover:text-purple-950"
                     }`}
                   >
-                    Yearly (40%)
+                    Annual (40%)
                   </button>
                 </div>
               </div>
@@ -664,9 +739,17 @@ function CheckoutPage() {
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-6 rounded-full bg-gradient-to-r from-[#240b4a] via-[#35106b] to-[#170535] text-white font-bold text-xs shadow-lg shadow-purple-950/20 hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer uppercase tracking-wider"
+                className={`w-full py-6 rounded-full font-extrabold text-xs shadow-lg hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer uppercase tracking-wider text-white ${
+                  plan === "trial"
+                    ? "bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-800 shadow-emerald-900/20"
+                    : "bg-gradient-to-r from-[#240b4a] via-[#35106b] to-[#170535] shadow-purple-950/20"
+                }`}
               >
-                {isSubmitting ? t.checkout.processingBtn : t.checkout.submitBtn}
+                {isSubmitting
+                  ? t.checkout.processingBtn
+                  : plan === "trial"
+                    ? t.checkout.trialSubmitBtn
+                    : t.checkout.submitBtn}
               </Button>
 
               {/* Guarantees */}

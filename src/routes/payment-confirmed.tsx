@@ -73,6 +73,7 @@ function PaymentConfirmedPage() {
   };
 
   const planTitles: Record<string, string> = {
+    trial: t.pricing.trialPlanName,
     monthly: t.pricing.monthlyPlanName,
     semi: t.pricing.semiPlanName,
     yearly: t.pricing.yearlyPlanName,
@@ -80,7 +81,10 @@ function PaymentConfirmedPage() {
   };
   const planDisplayName = planTitles[search.plan] || t.pricing.yearlyPlanName;
 
-  const starterMessage = `Hello Talk'n'Bit! 🚀 I just activated my ${planDisplayName} (Order #${search.orderId}). My name is ${search.name}. I'm ready to start practicing English!`;
+  const starterMessage =
+    search.plan === "trial"
+      ? `Hello Talk'n'Bit! 🚀 I just activated my 15-Day Free Trial (Order #${search.orderId}). My name is ${search.name}. I'm ready to start practicing English!`
+      : `Hello Talk'n'Bit! 🚀 I just activated my ${planDisplayName} (Order #${search.orderId}). My name is ${search.name}. I'm ready to start practicing English!`;
   const whatsAppUrl = getWhatsAppUrl(starterMessage);
 
   const formattedDate = new Date(search.expiresAt).toLocaleDateString([], {
@@ -146,13 +150,13 @@ function PaymentConfirmedPage() {
 
           <div className="space-y-1.5">
             <span className="text-xs font-extrabold uppercase tracking-widest text-emerald-700 bg-emerald-100/80 px-3.5 py-1 rounded-full border border-emerald-200">
-              {t.confirmation.celebration}
+              {search.plan === "trial" ? t.checkout.trialReceiptBadge : t.confirmation.celebration}
             </span>
             <h1 className="text-2xl sm:text-4xl font-extrabold text-[#1f0a44] pt-1">
-              {t.confirmation.heading}
+              {search.plan === "trial" ? t.confirmation.trialActivatedTitle : t.confirmation.heading}
             </h1>
             <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
-              {t.confirmation.subheading}
+              {search.plan === "trial" ? t.confirmation.trialActivatedSub : t.confirmation.subheading}
             </p>
           </div>
 
@@ -164,7 +168,7 @@ function PaymentConfirmedPage() {
               rel="noopener noreferrer"
               className="block w-full py-5 px-6 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs sm:text-sm shadow-xl shadow-emerald-700/25 transition-all hover:scale-[1.02] active:scale-[0.98] text-center"
             >
-              {t.confirmation.openWhatsAppBtn}
+              {search.plan === "trial" ? t.confirmation.trialOpenWhatsAppBtn : t.confirmation.openWhatsAppBtn}
             </a>
           </div>
         </div>

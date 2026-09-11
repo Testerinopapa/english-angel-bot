@@ -6,8 +6,8 @@ export function getWhatsAppUrl(customMessage: string) {
   return `https://wa.me/${BASE_WA_NUMBER}?text=${encodeURIComponent(customMessage)}`;
 }
 
-export type CheckoutPlanId = "monthly" | "semi" | "yearly" | "lifetime";
-export type CheckoutPaymentMethod = "pix" | "credit_card";
+export type CheckoutPlanId = "trial" | "monthly" | "semi" | "yearly" | "lifetime";
+export type CheckoutPaymentMethod = "pix" | "credit_card" | "free_trial";
 
 export interface CheckoutInput {
   phone: string;
@@ -57,7 +57,7 @@ export const processCheckout = createServerFn({ method: "POST" })
     }
 
     const plan = (data.plan || "yearly") as CheckoutPlanId;
-    const paymentMethod = (data.paymentMethod || "pix") as CheckoutPaymentMethod;
+    const paymentMethod = (data.paymentMethod || (plan === "trial" ? "free_trial" : "pix")) as CheckoutPaymentMethod;
 
     return {
       phone,
@@ -70,18 +70,49 @@ export const processCheckout = createServerFn({ method: "POST" })
     };
   })
   .handler(async ({ data }): Promise<CheckoutResult> => {
-    const { activateSubscription, normalizePhoneNumber } = await import("@/lib/subscriptions.server");
+    const { activateSubscription, normalizePhoneNumber, getPhoneVariants } = await import("@/lib/subscriptions.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     // Clean and normalize phone number
     const normalizedDigits = normalizePhoneNumber(data.phone);
     const orderId = `TNB-${Math.floor(100000 + Math.random() * 900000)}`;
 
-    let planKey: "monthly" | "semiannual" | "yearly" | "lifetime" = "yearly";
+    let planKey: "free_trial" | "monthly" | "semiannual" | "yearly" | "lifetime" = "yearly";
     let durationDays = 365;
     let planName = "Yearly Plan";
     let amountFormatted = "R$ 252,00";
 
-    if (data.plan === "monthly") {
+    if (data.plan === "trial") {
+      // 1-Phone Verification: Check if this phone number already claimed / expired a free trial
+      const variants = getPhoneVariants(normalizedDigits);
+      const { data: existingRows } = await supabaseAdmin
+        .from("subscribers")
+        .select("id, status, plan, trial_started_at, trial_ends_at, subscription_ends_at")
+        .in("phone_number", variants);
+
+      if (existingRows && existingRows.length > 0) {
+        const now = new Date();
+        const hasActivePaid = existingRows.some((r) => r.status === "active" || r.status === "vip");
+        if (hasActivePaid) {
+          throw new Error("This WhatsApp number is already subscribed to an active plan!");
+        }
+
+        const pastTrial = existingRows.find((r) => r.plan === "free_trial" || r.trial_started_at);
+        if (pastTrial) {
+          const trialEnds = pastTrial.trial_ends_at ? new Date(pastTrial.trial_ends_at) : null;
+          if (trialEnds && now > trialEnds) {
+            throw new Error(
+              "This WhatsApp phone number has already completed its 15-day free trial. Please select a monthly or yearly plan to continue."
+            );
+          }
+        }
+      }
+
+      planKey = "free_trial";
+      durationDays = 15;
+      planName = "15-Day Free Trial";
+      amountFormatted = "R$ 0,00";
+    } else if (data.plan === "monthly") {
       planKey = "monthly";
       durationDays = 30;
       planName = "Monthly Plan";
@@ -103,20 +134,24 @@ export const processCheckout = createServerFn({ method: "POST" })
       amountFormatted = "R$ 497,00";
     }
 
-    const notes = `Online Checkout Order #${orderId} | Buyer: ${data.name} (${data.email}) | Payment: ${data.paymentMethod.toUpperCase()}${
-      data.paymentMethod === "credit_card" && data.installments && data.installments > 1
-        ? ` (${data.installments}x)`
-        : ""
-    }`;
+    const notes = data.plan === "trial"
+      ? `15-Day Free Trial Activation | Phone: ${normalizedDigits} | User: ${data.name} (${data.email})`
+      : `Online Checkout Order #${orderId} | Buyer: ${data.name} (${data.email}) | Payment: ${data.paymentMethod.toUpperCase()}${
+          data.paymentMethod === "credit_card" && data.installments && data.installments > 1
+            ? ` (${data.installments}x)`
+            : ""
+        }`;
 
-    // Immediately activate the subscriber in Supabase!
+    // Immediately activate or provision the subscriber in Supabase!
     const sub = await activateSubscription(normalizedDigits, planKey, durationDays, notes);
 
     const now = new Date();
     const expiryDate = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
-    const expiresAt = sub?.subscription_ends_at || expiryDate.toISOString();
+    const expiresAt = sub?.subscription_ends_at || sub?.trial_ends_at || expiryDate.toISOString();
 
-    const starterMessage = `Hello Talk'n'Bit! 🚀 I just subscribed to the ${planName} (Order #${orderId}). My name is ${data.name}. I'm ready to start practicing English!`;
+    const starterMessage = data.plan === "trial"
+      ? `Hello Talk'n'Bit! 🚀 I just activated my 15-Day Free Trial (Order #${orderId}). My name is ${data.name}. I'm ready to start practicing English!`
+      : `Hello Talk'n'Bit! 🚀 I just subscribed to the ${planName} (Order #${orderId}). My name is ${data.name}. I'm ready to start practicing English!`;
     const whatsAppUrl = getWhatsAppUrl(starterMessage);
 
     return {

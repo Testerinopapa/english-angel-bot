@@ -83,8 +83,8 @@ function TermsPage() {
                 <p className="text-[11px] text-slate-500 mt-0.5">No extra apps needed</p>
               </div>
               <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-3 text-center">
-                <p className="text-xs font-bold text-emerald-950">24h / 15-Msg Trial</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">Free risk-free test</p>
+                <p className="text-xs font-bold text-emerald-950">15-Day Free Trial</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">1 Phone • Risk-free</p>
               </div>
               <div className="rounded-2xl border border-amber-100 bg-amber-50/50 p-3 text-center">
                 <p className="text-xs font-bold text-amber-950">15-Day Guarantee</p>
@@ -138,7 +138,7 @@ function TermsPage() {
               Free Trial & Entitlements
             </h2>
             <p className="text-sm leading-relaxed text-slate-600">
-              Every new phone number connecting to Talk'n'Bit automatically receives a free trial of up to <strong>15 messages or 24 hours</strong> (whichever occurs first). No credit card is required to begin the trial. Once the trial limit is reached, users must subscribe to a paid plan to continue sending messages and receiving corrections.
+              Every new user can choose our <strong>15-Day Free Trial Plan</strong> during sign-up. The free trial authorizes exactly <strong>1 WhatsApp phone number</strong> to activate and chat with the bot for 15 days of full conversational practice with zero charge. No credit card is required. Each phone number is eligible for only one free trial. Once the 15-day period ends, users can subscribe to a paid plan (Monthly, Semiannual, or Yearly) to continue receiving coaching and corrections.
             </p>
           </section>
 
