@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState, useMemo } from "react";
 import { toast } from "sonner";
@@ -304,6 +304,7 @@ function Dashboard({ email }: { email: string }) {
     toast.success(`Language set to ${names[lang]}`);
   };
 
+  const navigate = useNavigate();
   const fetchDashboard = useServerFn(getDashboard);
   const saveSettings = useServerFn(updateSettings);
   const queryClient = useQueryClient();
@@ -429,10 +430,28 @@ function Dashboard({ email }: { email: string }) {
   }, [parsedMessages, statusFilter, searchQuery]);
 
   if (error) {
+    const handleSignOutAndStartTrial = async () => {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn("Sign out error:", err);
+      }
+      navigate({ to: "/checkout", search: { plan: "trial" } as any });
+    };
+
+    const handleSignOutAndGoHome = async () => {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn("Sign out error:", err);
+      }
+      navigate({ to: "/" });
+    };
+
     return (
       <main className="min-h-screen bg-gradient-to-b from-[#fbf9fe] to-purple-50/50 flex items-center justify-center p-4 text-center">
-        <div className="w-full max-w-md rounded-3xl border border-purple-100 bg-white p-8 shadow-xl shadow-purple-950/5">
-          <div className="flex justify-end mb-3">
+        <div className="w-full max-w-md rounded-3xl border border-purple-100 bg-white p-8 shadow-xl shadow-purple-950/5 space-y-4">
+          <div className="flex justify-end mb-1">
             <div className="flex items-center bg-purple-50/90 p-0.5 rounded-full border border-purple-200/70 text-[11px] font-bold">
               {(["en", "pt", "es"] as const).map((lang) => (
                 <button
@@ -450,28 +469,58 @@ function Dashboard({ email }: { email: string }) {
               ))}
             </div>
           </div>
-          <div className="mx-auto w-12 h-12 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 mb-4">
+
+          <div className="mx-auto w-12 h-12 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
             <AlertCircle className="w-6 h-6" />
           </div>
-          <h1 className="text-xl font-bold text-[#1e0a45]">{t.auth.noAccessTitle}</h1>
-          <p className="mt-2 text-xs text-slate-600 leading-relaxed">
-            Account {email ? <span className="font-semibold text-purple-950">({email})</span> : ""} {t.auth.noAccessDesc}
-          </p>
-          <div className="mt-6 flex items-center justify-center gap-3">
+
+          <div>
+            <h1 className="text-xl font-bold text-[#1e0a45]">{t.auth.noAccessTitle}</h1>
+            <p className="mt-2 text-xs text-slate-600 leading-relaxed">
+              Account {email ? <span className="font-semibold text-purple-950">({email})</span> : ""} {t.auth.noAccessDesc}
+            </p>
+          </div>
+
+          {/* Trial Prompt Banner */}
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-left space-y-1.5">
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-950">
+              <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{t.auth.trialPromptTitle}</span>
+            </div>
+            <p className="text-[11px] text-emerald-900/85 leading-relaxed">
+              {t.auth.trialPromptDesc}
+            </p>
+          </div>
+
+          {/* Primary Action Button: Sign off and start free trial */}
+          <div className="pt-2 space-y-2.5">
             <button
               type="button"
-              className="rounded-full bg-[#fef2f2] border border-[#fecdd3] text-[#e11d48] font-semibold text-xs px-5 py-2 hover:bg-[#fee2e2] hover:border-[#fda4af] hover:text-[#be123c] shadow-2xs transition-all active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
-              onClick={() => supabase.auth.signOut()}
+              onClick={handleSignOutAndStartTrial}
+              className="w-full py-3.5 px-5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-800/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>{t.auth.signOut}</span>
+              <Sparkles className="w-4 h-4" />
+              <span>{t.auth.signOutAndStartTrial}</span>
             </button>
-            <Link
-              to="/"
-              className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#240b4a] to-[#170535] px-5 py-2 text-xs font-semibold text-white shadow-sm hover:scale-105 transition-all"
-            >
-              {t.auth.goHome}
-            </Link>
+
+            <div className="flex items-center justify-center gap-2.5 pt-1">
+              <button
+                type="button"
+                className="rounded-full bg-[#fef2f2] border border-[#fecdd3] text-[#e11d48] font-semibold text-xs px-4 py-2 hover:bg-[#fee2e2] hover:border-[#fda4af] hover:text-[#be123c] shadow-2xs transition-all active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
+                onClick={() => supabase.auth.signOut()}
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>{t.auth.signOut}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSignOutAndGoHome}
+                className="inline-flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:scale-105 transition-all cursor-pointer"
+              >
+                <span>{t.auth.signOutAndGoHome}</span>
+              </button>
+            </div>
           </div>
         </div>
       </main>

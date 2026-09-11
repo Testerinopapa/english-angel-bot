@@ -11,6 +11,8 @@ import {
   ChevronUp,
   HelpCircle,
   BookOpen,
+  Sparkles,
+  CheckCircle2,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -840,6 +842,39 @@ function LandingPage() {
             <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white">
               {t.plans.title}
             </h2>
+          </div>
+
+          {/* 15-Day Free Trial Spotlight Card on Landing Page */}
+          <div className="max-w-5xl mx-auto rounded-3xl bg-gradient-to-r from-white/15 via-white/10 to-white/5 backdrop-blur-md p-6 sm:p-8 text-white shadow-2xl border border-white/25 relative overflow-hidden text-left">
+            <div className="absolute -right-10 -top-10 w-48 h-48 bg-[#fec84d]/15 rounded-full blur-2xl pointer-events-none" />
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+              <div className="space-y-2 text-center md:text-left">
+                <div className="inline-flex items-center gap-2 bg-[#fec84d] text-[#1f0a44] px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider shadow-xs">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{t.plans.trialBadge}</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-extrabold tracking-tight text-white">
+                  {t.plans.trialTitle} — {t.plans.trialPrice} {t.plans.trialPeriod}
+                </h3>
+                <p className="text-xs sm:text-sm text-purple-100/90 max-w-xl">
+                  {t.plans.trialDesc}
+                </p>
+                <div className="pt-1 text-xs text-purple-200 flex items-center justify-center md:justify-start gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-[#fec84d]" />
+                  <span>{t.plans.trialPhoneNotice}</span>
+                </div>
+              </div>
+
+              <div className="shrink-0 w-full md:w-auto">
+                <Link
+                  to="/checkout"
+                  search={{ plan: "trial" }}
+                  className="block w-full md:w-auto rounded-full bg-[#fec84d] hover:bg-[#fed36c] text-[#1f0a44] font-black text-xs sm:text-sm px-8 py-3.5 shadow-xl hover:scale-105 active:scale-95 transition-all text-center cursor-pointer"
+                >
+                  {t.plans.trialCta}
+                </Link>
+              </div>
+            </div>
           </div>
 
           {/* 3 Pricing Cards */}

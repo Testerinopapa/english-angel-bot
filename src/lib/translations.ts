@@ -111,6 +111,13 @@ export interface TranslationSchema {
     getYearly: string;
     guarantee: string;
     choosePlan: string;
+    trialBadge: string;
+    trialTitle: string;
+    trialPrice: string;
+    trialPeriod: string;
+    trialDesc: string;
+    trialCta: string;
+    trialPhoneNotice: string;
   };
   footer: {
     freePractice: string;
@@ -274,6 +281,13 @@ export const TRANSLATIONS: Record<SupportedLang, TranslationSchema> = {
       getYearly: "Get Yearly",
       guarantee: "15-day money-back guarantee",
       choosePlan: "Choose a plan",
+      trialBadge: "100% FREE",
+      trialTitle: "15-Day Free Trial",
+      trialPrice: "R$ 0",
+      trialPeriod: "/ 15 days",
+      trialDesc: "Full access to 1-on-1 English coaching on WhatsApp. Allows 1 phone to activate the bot. No credit card required.",
+      trialCta: "Start 15-Day Free Trial →",
+      trialPhoneNotice: "1 WhatsApp phone allowed",
     },
     footer: {
       freePractice: "Free English Practice →",
@@ -477,6 +491,13 @@ export const TRANSLATIONS: Record<SupportedLang, TranslationSchema> = {
       getYearly: "Assinar Anual",
       guarantee: "Garantia incondicional de 15 dias",
       choosePlan: "Escolha seu plano",
+      trialBadge: "100% GRÁTIS",
+      trialTitle: "Teste Grátis de 15 Dias",
+      trialPrice: "R$ 0",
+      trialPeriod: "/ 15 dias",
+      trialDesc: "Acesso completo à mentoria de inglês no WhatsApp. Permite ativar 1 telefone no bot. Sem cartão de crédito.",
+      trialCta: "Iniciar Teste Grátis de 15 Dias →",
+      trialPhoneNotice: "Permite 1 número de WhatsApp",
     },
     footer: {
       freePractice: "Prática Gratuita de Inglês →",
@@ -680,6 +701,13 @@ export const TRANSLATIONS: Record<SupportedLang, TranslationSchema> = {
       getYearly: "Elegir Anual",
       guarantee: "Garantía incondicional de 15 días",
       choosePlan: "Elige un plan",
+      trialBadge: "100% GRATIS",
+      trialTitle: "Prueba Gratis de 15 Días",
+      trialPrice: "R$ 0",
+      trialPeriod: "/ 15 días",
+      trialDesc: "Acceso completo a tutoría de inglés en WhatsApp. Permite activar 1 teléfono en el bot. Sin tarjeta de crédito.",
+      trialCta: "Comenzar Prueba Gratis de 15 Días →",
+      trialPhoneNotice: "Permite 1 número de WhatsApp",
     },
     footer: {
       freePractice: "Práctica Gratuita de Inglés →",

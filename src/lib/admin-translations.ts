@@ -27,6 +27,10 @@ export interface AdminTranslationSchema {
     noAccessTitle: string;
     noAccessDesc: string;
     goHome: string;
+    signOutAndStartTrial: string;
+    signOutAndGoHome: string;
+    trialPromptTitle: string;
+    trialPromptDesc: string;
   };
   banner: {
     title: string;
@@ -172,6 +176,10 @@ export const ADMIN_TRANSLATIONS: Record<SupportedLang, AdminTranslationSchema> =
       noAccessTitle: "No admin access",
       noAccessDesc: "is not registered as an administrator in Talk'n'Bit.",
       goHome: "Go to Home",
+      signOutAndStartTrial: "Sign Off & Start Free Trial →",
+      signOutAndGoHome: "Sign Off & Return Home",
+      trialPromptTitle: "Looking to practice English?",
+      trialPromptDesc: "This portal is reserved for administrative staff. You can sign off and activate your 15-day free trial on WhatsApp right now!",
     },
     banner: {
       title: "Process Incoming Messages",
@@ -338,6 +346,10 @@ export const ADMIN_TRANSLATIONS: Record<SupportedLang, AdminTranslationSchema> =
       noAccessTitle: "Sem acesso de administrador",
       noAccessDesc: "não está cadastrado como administrador no Talk'n'Bit.",
       goHome: "Ir para o Início",
+      signOutAndStartTrial: "Sair e Iniciar Teste Grátis →",
+      signOutAndGoHome: "Sair e Voltar para o Início",
+      trialPromptTitle: "Quer praticar inglês?",
+      trialPromptDesc: "Este painel é exclusivo para a equipe de administração. Desconecte-se abaixo para voltar para a página inicial e ativar seu teste grátis de 15 dias no WhatsApp!",
     },
     banner: {
       title: "Processar Mensagens Recebidas",
@@ -504,6 +516,10 @@ export const ADMIN_TRANSLATIONS: Record<SupportedLang, AdminTranslationSchema> =
       noAccessTitle: "Sin acceso de administrador",
       noAccessDesc: "no está registrado como administrador en Talk'n'Bit.",
       goHome: "Ir al Inicio",
+      signOutAndStartTrial: "Cerrar Sesión e Iniciar Prueba Gratis →",
+      signOutAndGoHome: "Cerrar Sesión y Volver al Inicio",
+      trialPromptTitle: "¿Quieres practicar inglés?",
+      trialPromptDesc: "Este panel está reservado para el personal administrativo. ¡Puedes cerrar sesión y activar tu prueba gratis de 15 días en WhatsApp ahora mismo!",
     },
     banner: {
       title: "Procesar Mensajes Entrantes",
