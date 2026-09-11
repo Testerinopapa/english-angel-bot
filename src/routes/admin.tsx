@@ -280,6 +280,9 @@ function AdminDashboard() {
   if (session === null) {
     return <AdminAuth />;
   }
+  return <Dashboard email={session.email ?? ""} />;
+}
+
 interface StudentPortalProps {
   email: string;
   subscription: any;
@@ -368,7 +371,7 @@ function StudentPortal({
   const isExpired = subscription?.status === "expired" || (daysRemaining === 0 && Boolean(subscription));
 
   return (
-    <div className="min-h-screen bg-[#fbf9fe] text-[#1e0a45] font-sans selection:bg-[#fec84d] selection:text-[#1e0a45] relative">
+    <div className="min-h-screen w-full bg-[#fbf9fe] text-[#1e0a45] font-sans selection:bg-[#fec84d] selection:text-[#1e0a45] relative flex flex-col">
       {/* Ambient background glow */}
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_80%_45%_at_50%_-15%,rgba(120,60,200,0.06),transparent)] pointer-events-none" />
 
@@ -434,7 +437,7 @@ function StudentPortal({
       </header>
 
       {/* Main Content Area */}
-      <main className="max-w-5xl mx-auto px-6 py-8 sm:py-12 space-y-8 relative z-10">
+      <main className="max-w-5xl w-full mx-auto px-6 py-8 sm:py-12 space-y-8 relative z-10 flex-1 pb-24">
         {subscription ? (
           <>
             {/* Active Subscription / Trial Hero Card */}
@@ -636,6 +639,13 @@ function StudentPortal({
           </div>
         )}
       </main>
+
+      {/* Seamless light footer */}
+      <footer className="mt-auto border-t border-purple-100/70 bg-[#fbf9fe] py-6 relative z-10">
+        <div className="max-w-5xl mx-auto px-6 text-center text-xs text-slate-400">
+          Talk'n'Bit &copy; {new Date().getFullYear()} &bull; English AI Immersion
+        </div>
+      </footer>
     </div>
   );
 }
@@ -924,7 +934,7 @@ function Dashboard({ email }: { email: string }) {
   );
 
   return (
-    <div className="min-h-screen bg-[#fbf9fe] text-[#1e0a45] font-sans selection:bg-[#fec84d] selection:text-[#1e0a45] relative">
+    <div className="min-h-screen w-full bg-[#fbf9fe] text-[#1e0a45] font-sans selection:bg-[#fec84d] selection:text-[#1e0a45] relative flex flex-col">
       {/* Ambient background decoration */}
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_80%_45%_at_50%_-15%,rgba(120,60,200,0.06),transparent)] pointer-events-none" />
 
@@ -998,7 +1008,7 @@ function Dashboard({ email }: { email: string }) {
       </header>
 
       {/* Main Container */}
-      <main className="max-w-6xl mx-auto px-6 py-8 space-y-8 relative z-10">
+      <main className="max-w-6xl w-full mx-auto px-6 py-8 space-y-8 relative z-10 flex-1 pb-24">
         {/* Bot Enable/Disable Banner */}
         <div className="rounded-3xl border border-purple-100/90 bg-white p-6 shadow-sm flex flex-wrap items-center justify-between gap-6 transition-all hover:shadow-md hover:shadow-purple-950/5">
           <div className="flex items-center gap-4">
@@ -1869,6 +1879,13 @@ function Dashboard({ email }: { email: string }) {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Seamless light footer */}
+      <footer className="mt-auto border-t border-purple-100/70 bg-[#fbf9fe] py-6 relative z-10">
+        <div className="max-w-6xl mx-auto px-6 text-center text-xs text-slate-400">
+          Talk'n'Bit &copy; {new Date().getFullYear()} &bull; English AI Immersion
+        </div>
+      </footer>
     </div>
   );
 }
