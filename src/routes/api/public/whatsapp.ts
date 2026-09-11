@@ -13,9 +13,11 @@ import {
   formatPracticeStarter,
   formatPrivateCorrection,
   formatRoomsTutorial,
+  isBilingualOrTranslationInquiry,
   maskSender,
   parseIncomingMessages,
   readMetaConfig,
+  requestBilingualAnswer,
   requestCorrection,
   sendWhatsAppInteractiveButton,
   sendWhatsAppInteractiveButtons,
@@ -154,6 +156,21 @@ async function processTextMessage(msg: IncomingTextMessage) {
       );
     }
 
+    // Secret whisper to author if bilingual question or translation requested in room
+    if (settings.bot_enabled && isBilingualOrTranslationInquiry(msg.text)) {
+      try {
+        const bilingualAns = await requestBilingualAnswer(msg.text);
+        if (bilingualAns) {
+          await sendWhatsAppText(
+            msg.from,
+            `💡 *Bilingual Help (In room #${partnerInfo.roomCode}):*\n${bilingualAns}`,
+          );
+        }
+      } catch (err) {
+        console.warn("AI error during room bilingual assistance:", err);
+      }
+    }
+
     // Seamlessly forward message to partner (partner NEVER sees corrections!)
     await sendWhatsAppText(
       partnerInfo.partnerPhone,
@@ -251,6 +268,36 @@ async function processTextMessage(msg: IncomingTextMessage) {
       }),
     });
     return;
+  }
+
+  // --- Bilingual Questions, Translation & Language Inquiries ---
+  if (!isGroup && isBilingualOrTranslationInquiry(msg.text)) {
+    try {
+      const answer = await requestBilingualAnswer(msg.text);
+      if (answer) {
+        await sendWhatsAppInteractiveButton(
+          msg.from,
+          answer,
+          "btn_1on1",
+          "Try in a Sentence 🗣️",
+          "Talk'n'Bit • Bilingual Assistant",
+        );
+        await finish({
+          status: "bilingual_answered",
+          has_error: false,
+          correction_sent: true,
+          message_content: content,
+          error_detail: JSON.stringify({
+            type: "bilingual_answer",
+            query: msg.text,
+            answer_preview: answer.slice(0, 200),
+          }),
+        });
+        return;
+      }
+    } catch (err) {
+      console.warn("Bilingual assistance error:", err);
+    }
   }
 
   try {

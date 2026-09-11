@@ -336,6 +336,191 @@ export async function requestCorrection(
   };
 }
 
+export const BILINGUAL_SYSTEM_PROMPT = `You are Talk'n'Bit, a friendly, concise, and expert bilingual English coach on WhatsApp.
+Your users are students (primarily native Brazilian Portuguese or Spanish speakers) learning English.
+
+The user is asking you a language question, asking for a translation, asking how to say something in English, or asking about English grammar, vocabulary, or pronunciation.
+
+Your instructions:
+1. Provide a direct, natural, and helpful answer immediately in WhatsApp chat format.
+2. If asked "Como se diz X?" or "How do I say X?":
+   • Give the most common, natural English phrasing first (in *bold*).
+   • If there are casual vs formal alternatives, show both briefly.
+   • Provide 1-2 realistic example sentences with English and Portuguese/Spanish translation.
+   • Alert the user to any false friends or literal translation traps (e.g. "Never say 'give a turn'").
+3. If asked about differences (e.g. "make vs do", "in vs on vs at", "borrow vs lend", "say vs tell"):
+   • Give the core rule or simple memory trick.
+   • Provide clear contrasting examples.
+4. If asked about an idiom or word meaning:
+   • Explain the meaning clearly and simply.
+   • Provide a real-life situation where native speakers use it.
+5. If the message is written in Portuguese or Spanish expressing a thought or seeking help:
+   • Translate what they said into natural English (in *bold*).
+   • Explain any key vocabulary or grammar nuance briefly.
+6. Formatting & Tone:
+   • Use WhatsApp markdown: *bold* for English terms, _italics_ for translations/notes.
+   • Keep it concise, friendly, and mobile-friendly (aim for 70-130 words). Never write long lectures.
+   • Finish with a warm micro-challenge: e.g. "Now try sending me a sentence using it! 😊"
+`;
+
+/** Check if an incoming message is asking a bilingual question, translation, or is in Portuguese/Spanish */
+export function isBilingualOrTranslationInquiry(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+
+  // 1. Explicit how to say / translate patterns (Portuguese, Spanish, English)
+  const translationPatterns = [
+    /\b(como\s+(?:se\s+)?(?:diz|fala|dizer|falar|digo|posso\s+dizer))\b/i,
+    /\b(como\s+(?:traduzo|traduzir|traduz))\b/i,
+    /\b(c[oó]mo\s+(?:se\s+)?(?:dice|digo|puedo\s+decir|decir|traducir))\b/i,
+    /\b(how\s+(?:do\s+you|to|can\s+i|do\s+i|would\s+you)\s+say)\b/i,
+    /\b(how\s+to\s+translate)\b/i,
+    /\b(can\s+you\s+translate|translate\s+(?:this|into|to))\b/i,
+    /\b(traduz(?:a|ir|am)?|tradu[çc][ãa]o|traduc(?:e|ir|ci[oó]n))\b/i,
+  ];
+  if (translationPatterns.some((p) => p.test(trimmed))) return true;
+
+  // 2. Meaning / definition questions
+  const definitionPatterns = [
+    /\b(o\s+que\s+(?:significa|quer\s+dizer))\b/i,
+    /\b(qual\s+(?:o\s+)?significado)\b/i,
+    /\b(qu[eé]\s+significa|cu[aá]l\s+es\s+el\s+significado)\b/i,
+    /\b(what\s+does\s+.+\s+mean)\b/i,
+    /\b(what\s+is\s+the\s+meaning\s+of|what\s+means)\b/i,
+    /\b(meaning\s+of)\b/i,
+  ];
+  if (definitionPatterns.some((p) => p.test(trimmed))) return true;
+
+  // 3. Difference / grammar / why questions
+  const grammarQuestionPatterns = [
+    /\b(qual\s+(?:é\s+)?a\s+diferen[çc]a|diferen[çc]a\s+entre)\b/i,
+    /\b(cu[aá]l\s+es\s+la\s+diferencia|diferencia\s+entre)\b/i,
+    /\b(what(?:'s|\s+is)\s+the\s+difference\s+between)\b/i,
+    /\b(difference\s+between)\b/i,
+    /\b(quando\s+(?:se\s+)?(?:usa|usar|utiliza|devo\s+usar))\b/i,
+    /\b(cu[aá]ndo\s+(?:se\s+)?(?:usa|usar|utiliza))\b/i,
+    /\b(when\s+(?:should\s+i|to|do\s+we)\s+use)\b/i,
+    /\b(por\s*que\s+(?:se\s+)?(?:diz|usa|fala|[eé]|usamos))\b/i,
+    /\b(por\s*qu[eé]\s+(?:se\s+)?(?:dice|usa|habla))\b/i,
+    /\b(why\s+(?:do\s+we|is\s+it|do\s+you|should\s+we)\s+(?:say|use|have))\b/i,
+    /\b(is\s+it\s+correct\s+to\s+say|is\s+this\s+correct)\b/i,
+  ];
+  if (grammarQuestionPatterns.some((p) => p.test(trimmed))) return true;
+
+  // 4. Questions ending with target language ("em inglês?", "en inglés?", "in English?")
+  if (
+    /(?:em\s+ingl[eê]s|no\s+ingl[eê]s|para\s+o\s+ingl[eê]s|pro\s+ingl[eê]s|en\s+ingl[eé]s|in\s+english)\s*[?!.]*$/i.test(
+      trimmed,
+    )
+  ) {
+    return true;
+  }
+
+  // 5. Strong Portuguese / Spanish linguistic markers
+  const ptWordCount = (
+    trimmed.match(
+      /\b(voc[eê]|estou|est[aá]|n[aã]o|muito|obrigad[oa]|porque|por\s+que|tenho|fazer|falar|queria|ajuda|ingl[eê]s|d[uú]vida|exemplo|quero|aprender|aula|palavra|frase|significa|diz|dizer|significado|preciso|pode|poderia|como|qual|quando|onde|quem|esse|essa|isso|aquele|aquela|aquilo|tamb[eé]m|j[aá]|aqui|l[aá]|mesmo|coisa|tempo|dia|hoje|ontem|amanh[aã])\b/gi,
+    ) || []
+  ).length;
+
+  const esWordCount = (
+    trimmed.match(
+      /\b(usted|estoy|est[aá]|gracias|por\s+qu[eé]|porque|tengo|hacer|hablar|quer[ií]a|ayuda|ingl[eé]s|duda|ejemplo|quiero|aprender|clase|palabra|frase|significa|dice|decir|significado|necesito|puedo|podr[ií]a|c[oó]mo|cu[aá]l|cu[aá]ndo|d[oó]nde|qui[eé]n|este|esta|esto|tambi[eé]n|ya|aqu[ií]|mismo|cosa|tiempo|d[ií]a|hoy|ayer|ma[nñ]ana)\b/gi,
+    ) || []
+  ).length;
+
+  if (ptWordCount >= 2 || esWordCount >= 2) return true;
+
+  if (
+    /^(?:como|qual|quando|onde|por\s*que|o\s+que|qu[eé]|c[oó]mo|cu[aá]l|cu[aá]ndo|d[oó]nde)\b/i.test(
+      trimmed,
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Request a friendly, expert bilingual answer or translation from configured AI provider.
+ */
+export async function requestBilingualAnswer(userText: string): Promise<string | null> {
+  const config = getAIConfig();
+  if (!config.configured || !config.provider) {
+    throw new Error("AI provider is not configured (missing OPENROUTER_API_KEY or ANTHROPIC_API_KEY)");
+  }
+
+  if (config.provider === "openrouter") {
+    const apiKey =
+      process.env["OPENROUTER_API_KEY"] ||
+      process.env["CLAUDE_API_KEY"] ||
+      process.env["ANTHROPIC_API_KEY"];
+    if (!apiKey) throw new Error("OpenRouter API key is missing");
+
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "HTTP-Referer": "https://english-angel-bot.lovable.app",
+        "X-Title": "Talk'n'Bit Bilingual Assistance",
+      },
+      body: JSON.stringify({
+        model: config.model,
+        temperature: 0.3,
+        messages: [
+          { role: "system", content: BILINGUAL_SYSTEM_PROMPT },
+          { role: "user", content: userText },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const detail = await res.text();
+      throw new Error(`OpenRouter (${config.model}) ${res.status}: ${detail.slice(0, 300)}`);
+    }
+
+    const data = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const reply = data.choices?.[0]?.message?.content?.trim();
+    return reply || null;
+  } else if (config.provider === "anthropic") {
+    const apiKey = process.env["ANTHROPIC_API_KEY"] || process.env["CLAUDE_API_KEY"];
+    if (!apiKey) throw new Error("Anthropic API key is missing");
+
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: config.model,
+        max_tokens: 600,
+        temperature: 0.3,
+        system: BILINGUAL_SYSTEM_PROMPT,
+        messages: [{ role: "user", content: userText }],
+      }),
+    });
+
+    if (!res.ok) {
+      const detail = await res.text();
+      throw new Error(`Anthropic ${res.status}: ${detail.slice(0, 300)}`);
+    }
+
+    const data = (await res.json()) as {
+      content?: Array<{ type: string; text?: string }>;
+    };
+    const reply = data.content?.find((c) => c.type === "text")?.text?.trim();
+    return reply || null;
+  }
+
+  return null;
+}
+
 /** Send a plain text WhatsApp message through the official Meta Graph API. */
 export async function sendWhatsAppText(to: string, text: string): Promise<void> {
   const { accessToken, phoneNumberId } = readMetaConfig();
