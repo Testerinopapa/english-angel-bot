@@ -7,13 +7,18 @@ import {
   leavePracticeRoom,
 } from "@/lib/rooms.server";
 import {
+  formatCapabilitiesDeepDive,
   formatExplanationCard,
+  formatIntroPanel,
+  formatPracticeStarter,
   formatPrivateCorrection,
+  formatRoomsTutorial,
   maskSender,
   parseIncomingMessages,
   readMetaConfig,
   requestCorrection,
   sendWhatsAppInteractiveButton,
+  sendWhatsAppInteractiveButtons,
   sendWhatsAppText,
   verifyMetaSignature,
   type IncomingInteractiveMessage,
@@ -184,6 +189,70 @@ async function processTextMessage(msg: IncomingTextMessage) {
     return;
   }
 
+  // --- Intro Panel, Tutorial & Capabilities Trigger ---
+  const cleanedText = trimmed
+    .toLowerCase()
+    .replace(/[!.,?]/g, "")
+    .replace(/['’]/g, "'")
+    .trim();
+
+  const isExactIntroGreeting =
+    cleanedText === "hi i want to practice english with talk'n'bit" ||
+    cleanedText === "hi i want to practice english with talknbit" ||
+    cleanedText === "hello i want to practice english with talk'n'bit" ||
+    cleanedText === "i want to practice english with talk'n'bit" ||
+    cleanedText === "i want to practice english with talknbit" ||
+    cleanedText.includes("want to practice english with talk");
+
+  const isIntroCommand = /^\/(?:start|intro|tutorial|help|menu|about|capabilities)$/i.test(trimmed);
+  const isStandaloneGreeting = /^(?:hi|hello|hey|oi|ol[áa]|bom dia|boa tarde|boa noite|help|start|menu)[!?.]*$/i.test(trimmed);
+  const isPlanOrTrialInquiry =
+    cleanedText.startsWith("hi i want to start my english immersion") ||
+    cleanedText.startsWith("hi i want to expand my english vocabulary") ||
+    cleanedText.startsWith("hi i want to start my free english practice") ||
+    cleanedText.startsWith("hi i'd like to activate my one-day free trial") ||
+    cleanedText.startsWith("hi id like to activate my one-day free trial") ||
+    cleanedText.startsWith("hi i'd like to book an english trial lesson") ||
+    cleanedText.startsWith("hi id like to book an english trial lesson") ||
+    cleanedText.startsWith("hi i want to subscribe to the talk'n'bit") ||
+    cleanedText.startsWith("hi i want to subscribe to the talknbit");
+
+  if (!isGroup && (isExactIntroGreeting || isIntroCommand || isStandaloneGreeting || isPlanOrTrialInquiry)) {
+    const headline = isPlanOrTrialInquiry
+      ? "🎉 *Welcome to Talk'n'Bit!* 🚀\nYour trial and English practice are ready to begin."
+      : undefined;
+
+    const introText = formatIntroPanel(headline);
+    await sendWhatsAppInteractiveButtons(
+      msg.from,
+      introText,
+      [
+        { id: "btn_1on1", title: "Practice 1-on-1 🗣️" },
+        { id: "btn_rooms", title: "Study Buddy 👥" },
+        { id: "btn_capabilities", title: "How It Works 💡" },
+      ],
+      "Talk'n'Bit • AI English Immersion",
+    );
+
+    await finish({
+      status: "intro_sent",
+      has_error: false,
+      message_content: content,
+      error_detail: JSON.stringify({
+        type: "intro_panel",
+        trigger: msg.text,
+        matched: isExactIntroGreeting
+          ? "exact_landing_greeting"
+          : isIntroCommand
+            ? "intro_command"
+            : isPlanOrTrialInquiry
+              ? "plan_or_trial"
+              : "greeting",
+      }),
+    });
+    return;
+  }
+
   try {
     const result = await requestCorrection(settings.system_prompt, msg.text);
     if (!result) {
@@ -330,6 +399,90 @@ async function processInteractiveMessage(msg: IncomingInteractiveMessage) {
         message_content: `[${msg.buttonTitle}] (no cached explanation)`,
       });
     }
+  } else if (msg.buttonId === "btn_1on1") {
+    const starter = formatPracticeStarter();
+    await sendWhatsAppInteractiveButton(
+      msg.from,
+      starter,
+      "btn_random_topic",
+      "New Topic 🎲",
+      "Talk'n'Bit • 1-on-1 Practice",
+    );
+    await finish({
+      status: "starter_sent",
+      has_error: false,
+      message_content: `[${msg.buttonTitle}]`,
+      error_detail: JSON.stringify({ action: "start_1on1" }),
+    });
+  } else if (msg.buttonId === "btn_rooms") {
+    const tutorial = formatRoomsTutorial();
+    await sendWhatsAppInteractiveButton(
+      msg.from,
+      tutorial,
+      "btn_join_101",
+      "Join Room 101 🚀",
+      "Talk'n'Bit • Study Buddy Rooms",
+    );
+    await finish({
+      status: "room_tutorial_sent",
+      has_error: false,
+      message_content: `[${msg.buttonTitle}]`,
+      error_detail: JSON.stringify({ action: "rooms_tutorial" }),
+    });
+  } else if (msg.buttonId === "btn_capabilities") {
+    const capabilities = formatCapabilitiesDeepDive();
+    await sendWhatsAppInteractiveButton(
+      msg.from,
+      capabilities,
+      "btn_1on1",
+      "Start 1-on-1 🗣️",
+      "Talk'n'Bit • Capabilities",
+    );
+    await finish({
+      status: "capabilities_sent",
+      has_error: false,
+      message_content: `[${msg.buttonTitle}]`,
+      error_detail: JSON.stringify({ action: "capabilities_deep_dive" }),
+    });
+  } else if (msg.buttonId === "btn_random_topic") {
+    const starter = formatPracticeStarter();
+    await sendWhatsAppInteractiveButton(
+      msg.from,
+      starter,
+      "btn_random_topic",
+      "New Topic 🎲",
+      "Talk'n'Bit • 1-on-1 Practice",
+    );
+    await finish({
+      status: "starter_sent",
+      has_error: false,
+      message_content: `[${msg.buttonTitle}]`,
+      error_detail: JSON.stringify({ action: "random_topic" }),
+    });
+  } else if (msg.buttonId === "btn_join_101") {
+    const res = await joinPracticeRoom(msg.from, "101");
+    if (res.isNew) {
+      await sendWhatsAppText(
+        msg.from,
+        `⏳ *Practice Room #101 created!*\n\nShare this code with your study partner. When they message this bot:\n👉 */join 101*\n\nyou will be automatically connected!`,
+      );
+    } else if (res.partnerPhone) {
+      await sendWhatsAppText(
+        msg.from,
+        `🎉 *Connected to your study partner!*\n\nStart chatting in English! Talk'n'Bit will secretly watch your grammar and privately help you.\n\n_(Text */leave* anytime to exit)_`,
+      );
+      await sendWhatsAppText(
+        res.partnerPhone,
+        `🎉 *Your study partner has joined!*\n\nSay hello to start practicing in English! Talk'n'Bit will secretly watch and guide your grammar privately.\n\n_(Text */leave* anytime to exit)_`,
+      );
+    } else {
+      await sendWhatsAppText(msg.from, res.message);
+    }
+    await finish({
+      status: "room_command",
+      message_content: `[${msg.buttonTitle}] Join Room 101`,
+      error_detail: JSON.stringify({ action: "joined_room_101", roomCode: "101" }),
+    });
   } else {
     await finish({
       status: "received",

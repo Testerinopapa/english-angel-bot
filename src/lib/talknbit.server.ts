@@ -365,15 +365,19 @@ export async function sendWhatsAppText(to: string, text: string): Promise<void> 
   }
 }
 
+export type QuickReplyButton = {
+  id: string;
+  title: string;
+};
+
 /**
- * Send an interactive quick-reply button message via Meta Graph API.
+ * Send an interactive quick-reply button message (1 to 3 buttons) via Meta Graph API.
  * Gracefully falls back to plain text if interactive message delivery fails.
  */
-export async function sendWhatsAppInteractiveButton(
+export async function sendWhatsAppInteractiveButtons(
   to: string,
   bodyText: string,
-  buttonId: string,
-  buttonTitle: string = "Why? 💡",
+  buttons: QuickReplyButton[],
   footerText?: string,
 ): Promise<void> {
   const { accessToken, phoneNumberId } = readMetaConfig();
@@ -385,23 +389,21 @@ export async function sendWhatsAppInteractiveButton(
   // reply.title: max 20 chars
   // reply.id: max 256 chars
   // body.text: max 1024 chars
-  const title = buttonTitle.slice(0, 20);
-  const id = buttonId.slice(0, 256);
+  // buttons array: max 3 buttons
   const text = bodyText.slice(0, 1024);
+  const actionButtons = buttons.slice(0, 3).map((b) => ({
+    type: "reply",
+    reply: {
+      id: b.id.slice(0, 256),
+      title: b.title.slice(0, 20),
+    },
+  }));
 
   const interactivePayload: Record<string, unknown> = {
     type: "button",
     body: { text },
     action: {
-      buttons: [
-        {
-          type: "reply",
-          reply: {
-            id,
-            title,
-          },
-        },
-      ],
+      buttons: actionButtons,
     },
   };
 
@@ -436,6 +438,130 @@ export async function sendWhatsAppInteractiveButton(
     console.warn("Interactive send threw an error, falling back to plain text:", err);
     await sendWhatsAppText(to, text);
   }
+}
+
+/**
+ * Send an interactive quick-reply button message via Meta Graph API.
+ * Gracefully falls back to plain text if interactive message delivery fails.
+ */
+export async function sendWhatsAppInteractiveButton(
+  to: string,
+  bodyText: string,
+  buttonId: string,
+  buttonTitle: string = "Why? 💡",
+  footerText?: string,
+): Promise<void> {
+  return sendWhatsAppInteractiveButtons(
+    to,
+    bodyText,
+    [{ id: buttonId, title: buttonTitle }],
+    footerText,
+  );
+}
+
+/**
+ * Format the welcome Intro Panel, Tutorial & Capabilities overview for WhatsApp.
+ */
+export function formatIntroPanel(headline?: string): string {
+  const top = headline || "👋 *Welcome to Talk'n'Bit!* 🚀\nYour personal AI English immersion coach on WhatsApp.";
+  return [
+    top,
+    "",
+    "Here is what I can do for you:",
+    "",
+    "1️⃣ *1-on-1 Chat & Real-Time Feedback* 🗣️",
+    "Chat in English naturally about anything—your day, work, plans, or hobbies.",
+    "• If you make a mistake, I'll gently reply with the natural phrasing.",
+    "• Tap *[Why? 💡]* to learn the grammar rule behind it!",
+    "",
+    "2️⃣ *Study Buddy Practice Rooms* 👥",
+    "Practice with a friend without fear of judgment!",
+    "• Text */join 101* (or any number) to connect.",
+    "• Talk'n'Bit secretly watches and whispers corrections *privately* to you—your partner never sees your mistakes!",
+    "",
+    "3️⃣ *Bilingual Questions & Translations* 🇧🇷🇪🇸",
+    "Ask questions in Portuguese or Spanish whenever you're stuck:",
+    "• _\"Como se diz 'dar uma volta' em inglês?\"_",
+    "• _\"Why do we say 'interested in' and not 'interested on'?\"_",
+    "",
+    "⚡ *Quick Commands:*",
+    "• */join <room>* — Connect with a study partner (e.g. */join 101*)",
+    "• */leave* — Exit back to 1-on-1 mode",
+    "• */status* — Check your active room connection",
+    "• */help* — Show this intro panel again",
+    "",
+    "👇 *Tap a button below or send a message in English to begin!*",
+  ].join("\n");
+}
+
+export const CONVERSATION_TOPICS = [
+  "What did you do today, or what are your plans for this weekend?",
+  "If you could travel anywhere in the world tomorrow, where would you go and why?",
+  "What's your favorite movie or TV series of all time, and why do you love it?",
+  "Tell me about your job or what you're studying—what do you enjoy most about it?",
+  "What is one hobby or skill you've always wanted to learn, and what's stopping you?",
+  "What is your favorite food, and can you cook it yourself?",
+];
+
+/**
+ * Format a warm-up conversation starter to get the user speaking in English immediately.
+ */
+export function formatPracticeStarter(topicIndex?: number): string {
+  const idx =
+    typeof topicIndex === "number" && topicIndex >= 0
+      ? topicIndex % CONVERSATION_TOPICS.length
+      : Math.floor(Math.random() * CONVERSATION_TOPICS.length);
+  const topic = CONVERSATION_TOPICS[idx];
+
+  return [
+    "🎯 *1-on-1 Practice Active!*",
+    "",
+    "Here is a warm-up question to get us started:",
+    `👉 *${topic}*`,
+    "",
+    "Reply in English! Don't worry about making mistakes—every mistake is a stepping stone to fluency. 😊",
+  ].join("\n");
+}
+
+/**
+ * Format a 3-step walkthrough on how Study Buddy Rooms work.
+ */
+export function formatRoomsTutorial(): string {
+  return [
+    "👥 *Study Buddy Rooms — Quick Tutorial*",
+    "",
+    "Practice speaking English with a partner or friend—privately and judgment-free!",
+    "",
+    "*How it works in 3 easy steps:*",
+    "1️⃣ Choose any room number (e.g. *101*).",
+    "2️⃣ Text: */join 101*",
+    "3️⃣ Have your study partner message this bot: */join 101*",
+    "",
+    "🎉 *Connected!* Everything you send is forwarded directly to your partner.",
+    "",
+    "🕵️ *The Secret Watcher Feature:*",
+    "If you make a grammar mistake, Talk'n'Bit whispers the fix *privately only to you*. Your partner will NEVER see your corrections!",
+    "",
+    "To leave anytime, text: */leave*",
+    "",
+    "👉 Try it right now by texting: */join 101*",
+  ].join("\n");
+}
+
+/**
+ * Format a deep-dive explanation of Talk'n'Bit capabilities and pedagogy.
+ */
+export function formatCapabilitiesDeepDive(): string {
+  return [
+    "✨ *Talk'n'Bit Capabilities Deep-Dive*",
+    "",
+    "• *Discreet Micro-Feedback:* Natural corrections without breaking conversation flow.",
+    "• *[Why? 💡] Grammar Cards:* Pinpoints specific Brazilian Portuguese & Spanish false cognates, preposition pitfalls, and verb tenses.",
+    "• *Secret-Watcher Rooms:* Real human practice with silent AI coaching in the background.",
+    "• *Zero Friction:* 100% inside WhatsApp. No app store downloads, logins, or ads.",
+    "",
+    "Send any message in English to practice 1-on-1 right now! 🌟",
+  ].join("\n");
 }
 
 /**
