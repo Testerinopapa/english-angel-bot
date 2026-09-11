@@ -98,7 +98,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap",
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon.ico", sizes: "any" },
+      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+      { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
     ],
   }),
 
@@ -113,6 +116,30 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              #lovable-badge,
+              aside#lovable-badge,
+              [id*="lovable-badge"],
+              [class*="lovable-badge"],
+              [aria-label*="Lovable"],
+              [aria-label*="lovable"],
+              [aria-label*="Edit with Lovable"],
+              a[href*="lovable.dev"][target="_blank"],
+              div[data-lovable-badge] {
+                display: none !important;
+                visibility: hidden !important;
+                opacity: 0 !important;
+                pointer-events: none !important;
+                width: 0 !important;
+                height: 0 !important;
+                position: absolute !important;
+                z-index: -999999 !important;
+              }
+            `,
+          }}
+        />
       </head>
       <body>
         {children}
@@ -124,6 +151,37 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const purgeLovableBadge = () => {
+      const selectors = [
+        "#lovable-badge",
+        "aside#lovable-badge",
+        '[id*="lovable-badge"]',
+        '[class*="lovable-badge"]',
+        '[aria-label*="Lovable"]',
+        '[aria-label*="lovable"]',
+        '[aria-label*="Edit with Lovable"]',
+        'a[href*="lovable.dev"][target="_blank"]',
+        'div[data-lovable-badge]',
+      ];
+      selectors.forEach((sel) => {
+        document.querySelectorAll(sel).forEach((el) => {
+          el.remove();
+        });
+      });
+    };
+
+    purgeLovableBadge();
+    const observer = new MutationObserver(purgeLovableBadge);
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
