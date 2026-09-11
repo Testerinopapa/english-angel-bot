@@ -278,7 +278,7 @@ async function processTextMessage(msg: IncomingTextMessage) {
         await sendWhatsAppInteractiveButton(
           msg.from,
           answer,
-          "btn_1on1",
+          "btn_try_sentence",
           "Try in a Sentence 🗣️",
           "Talk'n'Bit • Bilingual Assistant",
         );
@@ -312,6 +312,22 @@ async function processTextMessage(msg: IncomingTextMessage) {
     }
 
     if (!result.has_error) {
+      if (!isGroup) {
+        await sendWhatsAppInteractiveButton(
+          msg.from,
+          "✅ *Spot on!* Your sentence is natural and grammatically correct. Well done! 🌟",
+          "btn_random_topic",
+          "Next Topic 🎲",
+          "Talk'n'Bit • 1-on-1 Practice",
+        );
+        await finish({
+          status: "confirmed_correct",
+          has_error: false,
+          correction_sent: true,
+          message_content: content,
+        });
+        return;
+      }
       await finish({ status: "no_error", has_error: false, message_content: content });
       return;
     }
@@ -446,6 +462,47 @@ async function processInteractiveMessage(msg: IncomingInteractiveMessage) {
         message_content: `[${msg.buttonTitle}] (no cached explanation)`,
       });
     }
+  } else if (msg.buttonId === "btn_try_sentence") {
+    const promptText = [
+      "✍️ *Your Turn to Practice!*",
+      "",
+      "Try writing a sentence in English using the expression, word, or rule we just discussed!",
+      "",
+      "Send your sentence right here in the chat. I'll check your grammar and phrasing. Don't worry about making mistakes—give it a shot! 🚀",
+    ].join("\n");
+
+    await sendWhatsAppInteractiveButton(
+      msg.from,
+      promptText,
+      "btn_sentence_hint",
+      "Need a Hint? 💡",
+      "Talk'n'Bit • Sentence Practice",
+    );
+    await finish({
+      status: "try_sentence_prompted",
+      has_error: false,
+      message_content: `[${msg.buttonTitle}]`,
+      error_detail: JSON.stringify({ action: "prompt_try_sentence" }),
+    });
+  } else if (msg.buttonId === "btn_sentence_hint") {
+    const hintText = [
+      "💡 *Sentence Starter Ideas:*",
+      "",
+      "You can start your sentence with:",
+      "• _\"I like to...\"_",
+      "• _\"Yesterday, I...\"_",
+      "• _\"Next weekend, my plan is to...\"_",
+      "• _\"In my opinion,...\"_",
+      "",
+      "Send your sentence in English whenever you're ready! 😊",
+    ].join("\n");
+
+    await sendWhatsAppText(msg.from, hintText);
+    await finish({
+      status: "hint_sent",
+      has_error: false,
+      message_content: `[${msg.buttonTitle}]`,
+    });
   } else if (msg.buttonId === "btn_1on1") {
     const starter = formatPracticeStarter();
     await sendWhatsAppInteractiveButton(
