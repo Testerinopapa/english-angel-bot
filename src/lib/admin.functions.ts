@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { settingsUpdateSchema } from "@/lib/admin-schema";
-import { assertAdmin, buildSettingsPatch } from "@/lib/admin.server";
+import { assertAdmin, checkIsAdmin, buildSettingsPatch } from "@/lib/admin.server";
 
 export const getDashboard = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -14,9 +14,7 @@ export const getDashboard = createServerFn({ method: "GET" })
   })
   .handler(async ({ data, context }) => {
     const { supabase, userId, claims } = context;
-    await assertAdmin(supabase, userId, claims, data?.email);
-
-    const { metaConfigStatus, aiConfigStatus } = await import("@/lib/talknbit.server");
+    const isAdmin = await checkIsAdmin(supabase, userId, claims, data?.email);
 
     let dbClient: any = supabase;
     try {
@@ -25,6 +23,53 @@ export const getDashboard = createServerFn({ method: "GET" })
     } catch {
       dbClient = supabase;
     }
+
+    // Resolve user email
+    let userEmail = data?.email;
+    if (!userEmail && typeof (claims as any)?.email === "string") {
+      userEmail = (claims as any).email;
+    }
+    if (!userEmail && (supabase as any)?.auth?.getUser) {
+      try {
+        const { data: authData } = await (supabase as any).auth.getUser();
+        if (authData?.user?.email) userEmail = authData.user.email;
+      } catch {}
+    }
+
+    if (!isAdmin) {
+      // Student / Free Trial Portal mode
+      let studentSubscription: any = null;
+      if (userEmail) {
+        const normalized = userEmail.toLowerCase().trim();
+        const { data: subRows } = await dbClient
+          .from("subscribers")
+          .select("id, phone_number, status, plan, trial_started_at, trial_ends_at, subscription_ends_at, messages_count, notes, created_at")
+          .ilike("notes", `%${normalized}%`)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (subRows && subRows.length > 0) {
+          studentSubscription = subRows[0];
+        }
+      }
+
+      return {
+        role: "student" as const,
+        isAdmin: false,
+        email: userEmail || "",
+        subscription: studentSubscription,
+        settings: null,
+        meta: null,
+        ai: null,
+        stats: null,
+        subscriberStats: null,
+        subscribers: [],
+        recent: [],
+      };
+    }
+
+    // Admin mode
+    const { metaConfigStatus, aiConfigStatus } = await import("@/lib/talknbit.server");
 
     const { data: settings } = await dbClient
       .from("app_settings")
@@ -59,6 +104,10 @@ export const getDashboard = createServerFn({ method: "GET" })
     };
 
     return {
+      role: "admin" as const,
+      isAdmin: true,
+      email: userEmail || "",
+      subscription: null,
       settings: settings ?? null,
       meta: metaConfigStatus(),
       ai: aiConfigStatus(),
@@ -179,5 +228,51 @@ export const deleteSubscriber = createServerFn({ method: "POST" })
     const { error } = await dbClient.from("subscribers").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+export const linkPhoneToStudentAccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown): { phone: string; email?: string } => {
+    if (!input || typeof input !== "object") throw new Error("Invalid payload");
+    const data = input as any;
+    const phone = String(data.phone || "").replace(/\D/g, "");
+    if (phone.length < 8) throw new Error("Please enter a valid phone number");
+    return { phone, email: data.email ? String(data.email).trim() : undefined };
+  })
+  .handler(async ({ data, context }) => {
+    const { getPhoneVariants, normalizePhoneNumber } = await import("@/lib/subscriptions.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    let userEmail = data.email;
+    if (!userEmail && (context.claims as any)?.email) {
+      userEmail = (context.claims as any).email;
+    }
+
+    const cleanPhone = normalizePhoneNumber(data.phone);
+    const variants = getPhoneVariants(cleanPhone);
+
+    const { data: rows } = await supabaseAdmin
+      .from("subscribers")
+      .select("*")
+      .in("phone_number", variants);
+
+    if (!rows || rows.length === 0) {
+      throw new Error("No subscription or free trial found for this phone number. Please activate your 15-day trial first.");
+    }
+
+    const targetRow = rows[0];
+    if (userEmail) {
+      const currentNotes = targetRow.notes || "";
+      const updatedNotes = currentNotes.includes(userEmail)
+        ? currentNotes
+        : `${currentNotes} | User: ${userEmail}`.trim();
+
+      await supabaseAdmin
+        .from("subscribers")
+        .update({ notes: updatedNotes, updated_at: new Date().toISOString() })
+        .eq("id", targetRow.id);
+    }
+
+    return { ok: true, subscription: targetRow };
   });
 

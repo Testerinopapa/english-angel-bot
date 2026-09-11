@@ -147,6 +147,36 @@ export interface AdminTranslationSchema {
     resetChanges: string;
     validJsonNote: string;
   };
+  studentPortal: {
+    badge: string;
+    portalTitle: string;
+    welcomeBack: string;
+    trialBadge: string;
+    activeStatus: string;
+    expiredStatus: string;
+    activatedPhone: string;
+    daysLeft: string;
+    expiresOn: string;
+    messagesSent: string;
+    openWhatsAppBtn: string;
+    practicePrompt: string;
+    feature1Title: string;
+    feature1Desc: string;
+    feature2Title: string;
+    feature2Desc: string;
+    feature3Title: string;
+    feature3Desc: string;
+    upgradeTitle: string;
+    upgradeDesc: string;
+    upgradeYearly: string;
+    upgradeMonthly: string;
+    noSubTitle: string;
+    noSubDesc: string;
+    activateTrialBtn: string;
+    linkPhonePrompt: string;
+    linkPhoneBtn: string;
+    phoneInputPlaceholder: string;
+  };
   statusLabels: Record<string, { label: string; tone: "ok" | "warn" | "bad" | "idle" }>;
 }
 
@@ -297,6 +327,36 @@ export const ADMIN_TRANSLATIONS: Record<SupportedLang, AdminTranslationSchema> =
       savingPrompt: "Saving...",
       resetChanges: "Reset Changes",
       validJsonNote: "Must return valid JSON schema for bot parsing",
+    },
+    studentPortal: {
+      badge: "Student Portal",
+      portalTitle: "Talk'n'Bit Student Area",
+      welcomeBack: "Welcome back",
+      trialBadge: "15-Day Free Trial",
+      activeStatus: "Active",
+      expiredStatus: "Expired",
+      activatedPhone: "Activated WhatsApp Phone",
+      daysLeft: "days remaining",
+      expiresOn: "Expires on",
+      messagesSent: "Messages Sent",
+      openWhatsAppBtn: "Open WhatsApp & Practice Now →",
+      practicePrompt: "Ready to practice English? Chat directly with Talk'n'Bit on WhatsApp or invite a friend to study rooms with private AI grammar whispering.",
+      feature1Title: "1-on-1 AI Coaching",
+      feature1Desc: "Chat naturally in English anytime. Talk'n'Bit listens and adapts to your conversational pace.",
+      feature2Title: "Private AI Whispers",
+      feature2Desc: "When you make a grammatical slip, Talk'n'Bit discreetly points it out with an interactive [Why? 💡] rule explanation.",
+      feature3Title: "Study Buddy Rooms",
+      feature3Desc: "Type /join <code> (e.g. /join 101) with a partner. Talk'n'Bit secret-watches and corrects each student privately.",
+      upgradeTitle: "Upgrade Your Plan",
+      upgradeDesc: "Enjoying Talk'n'Bit? Upgrade anytime to enjoy uninterrupted conversational immersion.",
+      upgradeYearly: "Get Yearly (40% OFF) →",
+      upgradeMonthly: "Get Monthly Plan →",
+      noSubTitle: "Activate Your 15-Day Free Trial",
+      noSubDesc: "Your student account is active, but you haven't linked your WhatsApp phone number yet. Activate your free trial today with 1 WhatsApp phone number—no credit card required!",
+      activateTrialBtn: "Activate 15-Day Free Trial (1 Phone) →",
+      linkPhonePrompt: "Already activated on WhatsApp with a phone number? Enter it below to link your account:",
+      linkPhoneBtn: "Link Phone",
+      phoneInputPlaceholder: "e.g. 13 99187-8104",
     },
     statusLabels: {
       corrected: { label: "Correction Sent", tone: "ok" },
@@ -470,6 +530,36 @@ export const ADMIN_TRANSLATIONS: Record<SupportedLang, AdminTranslationSchema> =
       resetChanges: "Descartar Alterações",
       validJsonNote: "Deve retornar schema JSON válido para o bot processar",
     },
+    studentPortal: {
+      badge: "Área do Aluno",
+      portalTitle: "Portal do Aluno Talk'n'Bit",
+      welcomeBack: "Bem-vindo de volta",
+      trialBadge: "Teste Grátis de 15 Dias",
+      activeStatus: "Ativo",
+      expiredStatus: "Expirado",
+      activatedPhone: "WhatsApp Ativado",
+      daysLeft: "dias restantes",
+      expiresOn: "Válido até",
+      messagesSent: "Mensagens Enviadas",
+      openWhatsAppBtn: "Abrir WhatsApp e Praticar Agora →",
+      practicePrompt: "Pronto para praticar inglês? Converse diretamente com o Talk'n'Bit no WhatsApp ou convide um amigo para salas de estudo com correções privadas de IA.",
+      feature1Title: "Mentoria 1-a-1 com IA",
+      feature1Desc: "Converse com naturalidade em inglês a qualquer hora. O Talk'n'Bit se adapta ao seu ritmo.",
+      feature2Title: "Sussurros Privados da IA",
+      feature2Desc: "Se cometer um deslize gramatical, a IA avisa discretamente com um botão interativo [Por quê? 💡] explicando a regra.",
+      feature3Title: "Salas de Estudo em Dupla",
+      feature3Desc: "Digite /join <código> (ex: /join 101) com um parceiro. A IA observa discretamente e corrige cada um em segredo.",
+      upgradeTitle: "Evolua seu Plano",
+      upgradeDesc: "Gostando do Talk'n'Bit? Assine a qualquer momento para ter imersão diária ininterrupta.",
+      upgradeYearly: "Assinar Anual (40% OFF) →",
+      upgradeMonthly: "Assinar Mensal →",
+      noSubTitle: "Ative seu Teste Grátis de 15 Dias",
+      noSubDesc: "Sua conta de aluno está ativa, mas você ainda não ativou seu número de WhatsApp. Ative seu teste grátis com 1 número de WhatsApp hoje mesmo — sem cartão de crédito!",
+      activateTrialBtn: "Ativar Teste Grátis de 15 Dias (1 Telefone) →",
+      linkPhonePrompt: "Já ativou seu número no WhatsApp? Digite abaixo para vincular à sua conta:",
+      linkPhoneBtn: "Vincular Telefone",
+      phoneInputPlaceholder: "ex: 13 99187-8104",
+    },
     statusLabels: {
       corrected: { label: "Correção Enviada", tone: "ok" },
       corrected_group_dm: { label: "Correção Privada (Grupo)", tone: "ok" },
@@ -641,6 +731,36 @@ export const ADMIN_TRANSLATIONS: Record<SupportedLang, AdminTranslationSchema> =
       savingPrompt: "Guardando...",
       resetChanges: "Descartar Cambios",
       validJsonNote: "Debe devolver un esquema JSON válido para el procesamiento del bot",
+    },
+    studentPortal: {
+      badge: "Área del Estudiante",
+      portalTitle: "Portal del Estudiante Talk'n'Bit",
+      welcomeBack: "Bienvenido de nuevo",
+      trialBadge: "Prueba Gratis de 15 Días",
+      activeStatus: "Activo",
+      expiredStatus: "Expirado",
+      activatedPhone: "WhatsApp Activado",
+      daysLeft: "días restantes",
+      expiresOn: "Válido hasta",
+      messagesSent: "Mensajes Enviados",
+      openWhatsAppBtn: "Abrir WhatsApp y Practicar Ahora →",
+      practicePrompt: "¿Listo para practicar inglés? Chatea directamente con Talk'n'Bit en WhatsApp o invita a un amigo a salas con correcciones privadas de IA.",
+      feature1Title: "Tutoría 1 a 1 con IA",
+      feature1Desc: "Chatea con naturalidad en inglés a cualquier hora. Talk'n'Bit se adapta a tu ritmo conversacional.",
+      feature2Title: "Susurros Privados de la IA",
+      feature2Desc: "Si cometes un fallo gramatical, la IA te avisa discretamente con un botón interactivo [¿Por qué? 💡] explicando la regla.",
+      feature3Title: "Salas de Estudio en Pareja",
+      feature3Desc: "Escribe /join <código> (ej: /join 101) con un compañero. La IA observa y corrige a cada uno en privado.",
+      upgradeTitle: "Mejora tu Plan",
+      upgradeDesc: "¿Disfrutando de Talk'n'Bit? Actualiza en cualquier momento para tener inmersión continua sin límites.",
+      upgradeYearly: "Elegir Anual (40% OFF) →",
+      upgradeMonthly: "Elegir Mensual →",
+      noSubTitle: "Activa tu Prueba Gratis de 15 Días",
+      noSubDesc: "Tu cuenta de estudiante está activa, pero aún no has activado tu número de WhatsApp. ¡Activa tu prueba gratis con 1 número de WhatsApp hoy mismo, sin tarjeta de crédito!",
+      activateTrialBtn: "Activar Prueba Gratis de 15 Días (1 Teléfono) →",
+      linkPhonePrompt: "¿Ya activaste tu número en WhatsApp? Ingrésalo a continuación para vincularlo a tu cuenta:",
+      linkPhoneBtn: "Vincular Teléfono",
+      phoneInputPlaceholder: "ej: 13 99187-8104",
     },
     statusLabels: {
       corrected: { label: "Corrección Enviada", tone: "ok" },

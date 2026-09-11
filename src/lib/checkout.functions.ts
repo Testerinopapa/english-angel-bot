@@ -131,10 +131,12 @@ export const processCheckout = createServerFn({ method: "POST" })
       amountFormatted = "R$ 497,00";
     }
 
-    const emailSnippet = data.email ? ` (${data.email})` : "";
+    const cleanEmail = data.email ? data.email.toLowerCase().trim() : "";
+    const emailSnippet = cleanEmail ? ` (${cleanEmail})` : "";
+    const emailTag = cleanEmail ? ` [email:${cleanEmail}]` : "";
     const notes = data.plan === "trial"
-      ? `15-Day Free Trial Activation | Phone: ${normalizedDigits} | User: ${data.name}${emailSnippet}`
-      : `Online Checkout Order #${orderId} | Buyer: ${data.name}${emailSnippet} | Payment: ${data.paymentMethod.toUpperCase()}${
+      ? `15-Day Free Trial Activation | Phone: ${normalizedDigits} | User: ${data.name}${emailSnippet}${emailTag}`
+      : `Online Checkout Order #${orderId} | Buyer: ${data.name}${emailSnippet}${emailTag} | Payment: ${data.paymentMethod.toUpperCase()}${
           data.paymentMethod === "credit_card" && data.installments && data.installments > 1
             ? ` (${data.installments}x)`
             : ""

@@ -246,7 +246,14 @@ function PaymentConfirmedPage() {
           <p className="text-xs text-slate-500">
             {t.confirmation.needHelp} <a href={getWhatsAppUrl("Hello! I need help with my Talk'n'Bit order #" + search.orderId)} target="_blank" rel="noopener noreferrer" className="text-purple-700 font-semibold underline underline-offset-4 hover:text-purple-950">{t.confirmation.contactSupport}</a>
           </p>
-          <div>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Link
+              to="/admin"
+              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-purple-100 hover:bg-purple-200 border border-purple-200 px-6 py-2.5 text-xs font-bold text-purple-950 shadow-xs transition-all"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-purple-700" />
+              <span>{selectedLang === "pt" ? "Ir para o Portal do Aluno →" : selectedLang === "es" ? "Ir al Portal del Estudiante →" : "Go to Student Portal →"}</span>
+            </Link>
             <Link
               to="/"
               className="inline-flex items-center justify-center rounded-full border border-purple-200 bg-white px-6 py-2.5 text-xs font-bold text-[#1f0a44] shadow-xs hover:bg-purple-50 transition-colors"

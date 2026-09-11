@@ -29,6 +29,9 @@ import {
   RotateCcw,
   Trash2,
   LogOut,
+  Clock,
+  Phone,
+  ArrowRight,
 } from "lucide-react";
 
 import { AdminAuth } from "@/components/AdminAuth";
@@ -46,6 +49,7 @@ import {
   grantSubscriberAccess,
   resetSubscriberCount,
   deleteSubscriber,
+  linkPhoneToStudentAccount,
 } from "@/lib/admin.functions";
 import type { SettingsUpdate } from "@/lib/admin-schema";
 import { ADMIN_TRANSLATIONS, type SupportedLang } from "@/lib/admin-translations";
@@ -276,7 +280,364 @@ function AdminDashboard() {
   if (session === null) {
     return <AdminAuth />;
   }
-  return <Dashboard email={session.email ?? ""} />;
+interface StudentPortalProps {
+  email: string;
+  subscription: any;
+  selectedLang: SupportedLang;
+  handleSelectLanguage: (lang: SupportedLang) => void;
+  t: (typeof ADMIN_TRANSLATIONS)["en"];
+  onRefresh: () => void;
+}
+
+function StudentPortal({
+  email,
+  subscription,
+  selectedLang,
+  handleSelectLanguage,
+  t,
+  onRefresh,
+}: StudentPortalProps) {
+  const linkPhoneFn = useServerFn(linkPhoneToStudentAccount);
+  const [manualPhone, setManualPhone] = useState("");
+  const [isLinking, setIsLinking] = useState(false);
+
+  const daysRemaining = useMemo(() => {
+    if (!subscription) return 0;
+    const targetDateStr = subscription.trial_ends_at || subscription.subscription_ends_at;
+    if (!targetDateStr) return 15;
+    const target = new Date(targetDateStr);
+    const now = new Date();
+    const diffMs = target.getTime() - now.getTime();
+    return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+  }, [subscription]);
+
+  const formattedExpiry = useMemo(() => {
+    if (!subscription) return "";
+    const targetDateStr = subscription.trial_ends_at || subscription.subscription_ends_at;
+    if (!targetDateStr) return "";
+    return new Date(targetDateStr).toLocaleDateString(
+      selectedLang === "pt" ? "pt-BR" : selectedLang === "es" ? "es-ES" : "en-US",
+      { month: "short", day: "numeric", year: "numeric" }
+    );
+  }, [subscription, selectedLang]);
+
+  const formattedPhone = useMemo(() => {
+    if (!subscription?.phone_number) return "";
+    const p = String(subscription.phone_number);
+    if (p.startsWith("55") && p.length >= 12) {
+      const ddd = p.slice(2, 4);
+      const rest = p.slice(4);
+      if (rest.length === 9) {
+        return `+55 (${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+      }
+      return `+55 (${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+    }
+    return `+${p}`;
+  }, [subscription]);
+
+  const whatsAppUrl = useMemo(() => {
+    const customMessage =
+      selectedLang === "pt"
+        ? "Olá Talk'n'Bit! 🚀 Estou com meu acesso ativo no portal e quero praticar inglês!"
+        : selectedLang === "es"
+        ? "¡Hola Talk'n'Bit! 🚀 ¡Tengo mi acceso activo en el portal y quiero practicar inglés!"
+        : "Hello Talk'n'Bit! 🚀 I have active access on the portal and want to practice English!";
+    return `https://wa.me/5513991878104?text=${encodeURIComponent(customMessage)}`;
+  }, [selectedLang]);
+
+  const handleLinkPhone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualPhone.trim() || manualPhone.replace(/\D/g, "").length < 8) {
+      toast.error(selectedLang === "pt" ? "Digite um número válido com DDD" : "Please enter a valid phone number");
+      return;
+    }
+    setIsLinking(true);
+    try {
+      await linkPhoneFn({ data: { phone: manualPhone, email } });
+      toast.success(selectedLang === "pt" ? "Telefone vinculado com sucesso!" : "Phone linked successfully!");
+      setManualPhone("");
+      onRefresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to link phone");
+    } finally {
+      setIsLinking(false);
+    }
+  };
+
+  const isTrial = subscription?.plan === "free_trial" || subscription?.status === "trial";
+  const isExpired = subscription?.status === "expired" || (daysRemaining === 0 && Boolean(subscription));
+
+  return (
+    <div className="min-h-screen bg-[#fbf9fe] text-[#1e0a45] font-sans selection:bg-[#fec84d] selection:text-[#1e0a45] relative">
+      {/* Ambient background glow */}
+      <div className="fixed inset-0 bg-[radial-gradient(ellipse_80%_45%_at_50%_-15%,rgba(120,60,200,0.06),transparent)] pointer-events-none" />
+
+      {/* Top Navbar */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-purple-100/80 shadow-xs">
+        <div className="max-w-5xl mx-auto px-6 h-18 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link to="/" className="flex items-center gap-2 group">
+              <img
+                src="/images/logo.png"
+                alt="Talk 'n' bit"
+                className="h-10 w-auto object-contain transition-transform group-hover:scale-105"
+              />
+            </Link>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-100/80 px-3 py-1 text-xs font-bold text-purple-900 border border-purple-200/70">
+              <Sparkles className="w-3.5 h-3.5 text-purple-700" />
+              <span>{t.studentPortal.badge}</span>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="hidden sm:inline-flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100/80 px-3 py-1 rounded-full">
+              {email}
+            </span>
+
+            {/* Language Switcher Pills */}
+            <div className="flex items-center bg-purple-50/90 p-0.5 rounded-full border border-purple-200/70 text-[11px] font-bold">
+              {(["en", "pt", "es"] as const).map((lang) => (
+                <button
+                  key={lang}
+                  type="button"
+                  onClick={() => handleSelectLanguage(lang)}
+                  className={`px-2 py-1 rounded-full transition-all cursor-pointer uppercase ${
+                    selectedLang === lang
+                      ? "bg-[#240b4a] text-white shadow-xs"
+                      : "text-purple-900/80 hover:text-purple-950"
+                  }`}
+                  title={lang === "en" ? "English" : lang === "pt" ? "Português" : "Español"}
+                >
+                  {lang}
+                </button>
+              ))}
+            </div>
+
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 rounded-full border border-purple-900/15 bg-purple-50/70 px-3.5 py-1.5 text-xs font-semibold text-[#1e0a45] transition-all hover:bg-purple-100 hover:border-purple-900/30"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{t.nav.viewSite}</span>
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => supabase.auth.signOut()}
+              className="rounded-full bg-[#fef2f2] border border-[#fecdd3] text-[#e11d48] font-semibold text-xs px-3.5 py-1.5 hover:bg-[#fee2e2] hover:border-[#fda4af] hover:text-[#be123c] shadow-2xs transition-all active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>{t.nav.signOut}</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <main className="max-w-5xl mx-auto px-6 py-8 sm:py-12 space-y-8 relative z-10">
+        {subscription ? (
+          <>
+            {/* Active Subscription / Trial Hero Card */}
+            <div className="rounded-3xl bg-gradient-to-br from-[#240b4a] via-[#371070] to-[#170535] text-white p-6 sm:p-10 shadow-2xl relative overflow-hidden border border-purple-300/20">
+              <div className="absolute -right-16 -top-16 w-64 h-64 bg-[#fec84d]/15 rounded-full blur-3xl pointer-events-none" />
+
+              <div className="space-y-6 relative z-10">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="inline-flex items-center gap-2 bg-[#fec84d] text-[#1f0a44] px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider shadow-xs">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>{isTrial ? t.studentPortal.trialBadge : String(subscription.plan)}</span>
+                  </div>
+
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                      isExpired
+                        ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                        : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                    }`}
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full ${isExpired ? "bg-rose-400" : "bg-emerald-400 animate-pulse"}`}
+                    />
+                    <span>{isExpired ? t.studentPortal.expiredStatus : t.studentPortal.activeStatus}</span>
+                  </span>
+                </div>
+
+                <div>
+                  <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
+                    {t.studentPortal.welcomeBack}, {email}!
+                  </h1>
+                  <p className="text-xs sm:text-sm text-purple-100/90 mt-2 max-w-2xl leading-relaxed">
+                    {t.studentPortal.practicePrompt}
+                  </p>
+                </div>
+
+                {/* 3 Status Info Cards */}
+                <div className="grid sm:grid-cols-3 gap-4 pt-2">
+                  <div className="rounded-2xl bg-white/10 backdrop-blur-md p-4 border border-white/15">
+                    <div className="flex items-center gap-2 text-purple-200 text-xs font-semibold">
+                      <Phone className="w-4 h-4 text-[#fec84d]" />
+                      <span>{t.studentPortal.activatedPhone}</span>
+                    </div>
+                    <div className="mt-2 text-base sm:text-lg font-black tracking-tight text-white font-mono">
+                      {formattedPhone || "1 Phone Activated"}
+                    </div>
+                    <p className="text-[11px] text-emerald-300 font-medium mt-1 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>1 WhatsApp phone active</span>
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-white/10 backdrop-blur-md p-4 border border-white/15">
+                    <div className="flex items-center gap-2 text-purple-200 text-xs font-semibold">
+                      <Clock className="w-4 h-4 text-[#fec84d]" />
+                      <span>{t.studentPortal.expiresLabel}</span>
+                    </div>
+                    <div className="mt-2 text-base sm:text-lg font-black tracking-tight text-white">
+                      {isExpired ? `0 ${t.studentPortal.daysLeft}` : `${daysRemaining} ${t.studentPortal.daysLeft}`}
+                    </div>
+                    <p className="text-[11px] text-purple-200/80 font-medium mt-1">
+                      {formattedExpiry ? `${t.studentPortal.expiresOn} ${formattedExpiry}` : "Full access"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-white/10 backdrop-blur-md p-4 border border-white/15">
+                    <div className="flex items-center gap-2 text-purple-200 text-xs font-semibold">
+                      <MessageCircle className="w-4 h-4 text-[#fec84d]" />
+                      <span>{t.studentPortal.messagesSent}</span>
+                    </div>
+                    <div className="mt-2 text-base sm:text-lg font-black tracking-tight text-white">
+                      {subscription.messages_count || 0}
+                    </div>
+                    <p className="text-[11px] text-purple-200/80 font-medium mt-1">
+                      Real-time AI corrections
+                    </p>
+                  </div>
+                </div>
+
+                {/* Big Primary Action: Open WhatsApp */}
+                <div className="pt-2">
+                  <a
+                    href={whatsAppUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white font-extrabold text-sm sm:text-base px-8 py-4 shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <MessageCircle className="w-5 h-5 fill-white" />
+                    <span>{t.studentPortal.openWhatsAppBtn}</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* 3 Learning Features */}
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-xs space-y-2 hover:shadow-md transition-shadow">
+                <div className="w-10 h-10 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-700">
+                  <Bot className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-sm text-[#1e0a45]">{t.studentPortal.feature1Title}</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">{t.studentPortal.feature1Desc}</p>
+              </div>
+
+              <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-xs space-y-2 hover:shadow-md transition-shadow">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-sm text-[#1e0a45]">{t.studentPortal.feature2Title}</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">{t.studentPortal.feature2Desc}</p>
+              </div>
+
+              <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-xs space-y-2 hover:shadow-md transition-shadow">
+                <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700">
+                  <Users className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-sm text-[#1e0a45]">{t.studentPortal.feature3Title}</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">{t.studentPortal.feature3Desc}</p>
+              </div>
+            </div>
+
+            {/* Upgrade Plan Card */}
+            <div className="rounded-3xl border border-purple-100/90 bg-white p-6 sm:p-8 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="space-y-1 text-center md:text-left">
+                <h4 className="text-base font-bold text-[#1e0a45]">{t.studentPortal.upgradeTitle}</h4>
+                <p className="text-xs text-slate-500 max-w-xl leading-relaxed">{t.studentPortal.upgradeDesc}</p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-3 shrink-0">
+                <Link
+                  to="/checkout"
+                  search={{ plan: "yearly" }}
+                  className="rounded-full bg-gradient-to-r from-[#240b4a] to-[#170535] text-white font-bold text-xs px-6 py-3 shadow-md hover:scale-105 active:scale-95 transition-all text-center cursor-pointer"
+                >
+                  {t.studentPortal.upgradeYearly}
+                </Link>
+                <Link
+                  to="/checkout"
+                  search={{ plan: "monthly" }}
+                  className="rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs px-5 py-3 border border-slate-200 transition-all text-center cursor-pointer"
+                >
+                  {t.studentPortal.upgradeMonthly}
+                </Link>
+              </div>
+            </div>
+          </>
+        ) : (
+          /* User has account but hasn't activated 15-day free trial yet */
+          <div className="max-w-2xl mx-auto rounded-3xl border border-purple-100 bg-white p-8 sm:p-12 shadow-xl shadow-purple-950/5 text-center space-y-6">
+            <div className="w-16 h-16 rounded-full bg-[#fec84d]/20 border border-[#fec84d]/50 flex items-center justify-center mx-auto text-[#1f0a44]">
+              <Sparkles className="w-8 h-8 text-purple-700" />
+            </div>
+
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-[#fec84d] text-[#1f0a44] px-3.5 py-1 text-xs font-black uppercase tracking-wider">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>100% FREE</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#1f0a44] tracking-tight">
+                {t.studentPortal.noSubTitle}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 max-w-lg mx-auto leading-relaxed">
+                {t.studentPortal.noSubDesc}
+              </p>
+            </div>
+
+            <div className="pt-2">
+              <Link
+                to="/checkout"
+                search={{ plan: "trial" }}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-8 py-4 shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer w-full sm:w-auto"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>{t.studentPortal.activateTrialBtn}</span>
+              </Link>
+            </div>
+
+            {/* Link existing WhatsApp number if already activated */}
+            <div className="pt-6 border-t border-purple-50 text-left space-y-3">
+              <p className="text-xs text-slate-600 font-medium">
+                {t.studentPortal.linkPhonePrompt}
+              </p>
+              <form onSubmit={handleLinkPhone} className="flex gap-2">
+                <Input
+                  type="tel"
+                  value={manualPhone}
+                  onChange={(e) => setManualPhone(e.target.value)}
+                  placeholder={t.studentPortal.phoneInputPlaceholder}
+                  className="rounded-xl border-slate-200 bg-slate-50/50 text-xs px-3.5 py-2.5 flex-1"
+                />
+                <Button
+                  type="submit"
+                  disabled={isLinking}
+                  className="rounded-xl bg-[#240b4a] hover:bg-[#35106b] text-white text-xs font-semibold px-5"
+                >
+                  {t.studentPortal.linkPhoneBtn}
+                </Button>
+              </form>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
 }
 
 function Dashboard({ email }: { email: string }) {
@@ -428,6 +789,27 @@ function Dashboard({ email }: { email: string }) {
       return true;
     });
   }, [parsedMessages, statusFilter, searchQuery]);
+
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-[#fbf9fe] flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-purple-600 border-t-transparent animate-spin" />
+      </main>
+    );
+  }
+
+  if (data?.role === "student") {
+    return (
+      <StudentPortal
+        email={email}
+        subscription={data.subscription}
+        selectedLang={selectedLang}
+        handleSelectLanguage={handleSelectLanguage}
+        t={t}
+        onRefresh={() => queryClient.invalidateQueries({ queryKey: ["dashboard", email] })}
+      />
+    );
+  }
 
   if (error) {
     const handleContinueTrial = () => {

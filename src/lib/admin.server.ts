@@ -92,6 +92,20 @@ export async function assertAdmin(
   if (data !== true) throw new Error("Forbidden");
 }
 
+export async function checkIsAdmin(
+  supabase: unknown,
+  userId: string,
+  emailOrClaims?: unknown,
+  clientProvidedEmail?: string | null,
+): Promise<boolean> {
+  try {
+    await assertAdmin(supabase, userId, emailOrClaims, clientProvidedEmail);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function buildSettingsPatch(input: SettingsUpdate) {
   const patch: {
     bot_enabled?: boolean;
