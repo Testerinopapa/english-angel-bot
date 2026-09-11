@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { ArrowLeft, ShieldCheck, Sparkles } from "lucide-react";
+import { confirmAdminEmail } from "@/lib/admin-auth.functions";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +37,8 @@ export function AdminAuth() {
     toast.success(`Language set to ${names[lang]}`);
   };
 
+  const runConfirmEmail = useServerFn(confirmAdminEmail);
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -79,21 +83,89 @@ export function AdminAuth() {
     event.preventDefault();
     setBusy(true);
     try {
+      const cleanEmail = email.trim();
       if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+        if (error) {
+          const msg = (error.message || "").toLowerCase();
+          if (msg.includes("email not confirmed") || msg.includes("not confirmed")) {
+            setNeedsConfirmation(true);
+            toast.info("Auto-confirming administrator email with Supabase...");
+            try {
+              const res = await runConfirmEmail({ data: { email: cleanEmail } });
+              if (res.ok) {
+                const { error: retryError } = await supabase.auth.signInWithPassword({
+                  email: cleanEmail,
+                  password,
+                });
+                if (retryError) throw retryError;
+                toast.success("Email verified! Signed in successfully.");
+                setNeedsConfirmation(false);
+                return;
+              }
+            } catch (autoErr) {
+              console.error("Auto-confirm error:", autoErr);
+              throw new Error(
+                autoErr instanceof Error
+                  ? autoErr.message
+                  : "Email not confirmed. Use the Auto-Confirm button below."
+              );
+            }
+          }
+          throw error;
+        }
       } else {
         const { error } = await supabase.auth.signUp({
-          email,
+          email: cleanEmail,
           password,
           options: { emailRedirectTo: `${window.location.origin}/admin` },
         });
         if (error) throw error;
+
+        // Auto-confirm immediately for admin email
+        try {
+          await runConfirmEmail({ data: { email: cleanEmail } });
+          const { error: autoSignInError } = await supabase.auth.signInWithPassword({
+            email: cleanEmail,
+            password,
+          });
+          if (!autoSignInError) {
+            toast.success("Admin account created and verified! Welcome.");
+            return;
+          }
+        } catch {
+          // Fall through
+        }
+
         toast.success("Account created. You can sign in now.");
         setMode("signin");
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Something went wrong");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleManualConfirm = async () => {
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      toast.error("Please enter your admin email");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await runConfirmEmail({ data: { email: cleanEmail } });
+      toast.success(res.message || "Email verified! You can now sign in.");
+      if (password) {
+        const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+        if (!error) {
+          toast.success("Signed in successfully!");
+          setNeedsConfirmation(false);
+        }
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to confirm email");
     } finally {
       setBusy(false);
     }
@@ -229,6 +301,23 @@ export function AdminAuth() {
               className="rounded-xl border-slate-200 bg-slate-50/50 text-xs px-3.5 py-2 text-[#1e0a45] focus:bg-white focus:border-purple-600 focus:ring-2 focus:ring-purple-600/15 transition-all"
             />
           </div>
+
+          {needsConfirmation && (
+            <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3.5 text-center space-y-2">
+              <p className="text-xs text-amber-900 font-medium">
+                Email confirmation required by Supabase Auth.
+              </p>
+              <Button
+                type="button"
+                disabled={busy}
+                onClick={handleManualConfirm}
+                className="w-full rounded-full bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold py-2 shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Instant Auto-Confirm Email & Activate →</span>
+              </Button>
+            </div>
+          )}
 
           <Button
             type="submit"
