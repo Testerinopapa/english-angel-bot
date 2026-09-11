@@ -8,7 +8,6 @@ import {
   ShieldCheck,
   CheckCircle2,
   AlertCircle,
-  Copy,
   Check,
   Bot,
   Sparkles,
@@ -20,7 +19,6 @@ import {
   Search,
   RefreshCw,
   Eye,
-  Code,
   Filter,
   Layers,
   ChevronDown,
@@ -49,7 +47,6 @@ import {
   deleteSubscriber,
 } from "@/lib/admin.functions";
 import type { SettingsUpdate } from "@/lib/admin-schema";
-import { webhookUrl } from "@/lib/webhook-url";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -319,14 +316,12 @@ function Dashboard({ email }: { email: string }) {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to remove subscriber"),
   });
 
-  const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
   // Message filter states
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "corrected" | "clean" | "rooms" | "failed">("all");
   const [viewMode, setViewMode] = useState<"feed" | "table">("feed");
-  const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({});
 
   const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ["dashboard", email],
@@ -346,16 +341,7 @@ function Dashboard({ email }: { email: string }) {
   const [prompt, setPrompt] = useState<string | null>(null);
   const currentPrompt = prompt ?? data?.settings?.system_prompt ?? "";
 
-  const copyWebhook = () => {
-    navigator.clipboard.writeText(webhookUrl());
-    setCopiedWebhook(true);
-    toast.success("Webhook URL copied to clipboard");
-    setTimeout(() => setCopiedWebhook(false), 2000);
-  };
 
-  const toggleDetails = (id: string) => {
-    setExpandedDetails((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
 
   // Parsed and filtered messages
   const filteredSubscribers = useMemo(() => {
@@ -860,7 +846,6 @@ function Dashboard({ email }: { email: string }) {
               <div className="space-y-4">
                 {filteredMessages.map((msg) => {
                   const s = getStatusInfo(msg.status);
-                  const isExpanded = expandedDetails[msg.id] ?? false;
 
                   return (
                     <div
@@ -963,45 +948,7 @@ function Dashboard({ email }: { email: string }) {
                         )}
                       </div>
 
-                      {/* Expandable Technical Detail */}
-                      <div className="pt-2 border-t border-purple-50/80 flex items-center justify-between text-[11px]">
-                        <button
-                          type="button"
-                          onClick={() => toggleDetails(msg.id)}
-                          className="text-purple-700 hover:text-purple-950 font-semibold inline-flex items-center gap-1 transition-colors"
-                        >
-                          <Code className="w-3.5 h-3.5" />
-                          <span>{isExpanded ? "Hide Technical Details" : "Inspect Raw Payload"}</span>
-                          {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                        </button>
 
-                        <span className="font-mono text-slate-400 text-[10px]">
-                          ID: {msg.waMessageId.slice(-12)}
-                        </span>
-                      </div>
-
-                      {/* Raw Payload Section */}
-                      {isExpanded && (
-                        <div className="rounded-2xl bg-slate-900 text-slate-200 p-4 font-mono text-[11px] space-y-2 animate-in fade-in-50">
-                          <div className="flex items-center justify-between text-slate-400 border-b border-slate-800 pb-1.5">
-                            <span>WhatsApp Message ID: {msg.waMessageId}</span>
-                            <span>UUID: {msg.id}</span>
-                          </div>
-                          {msg.rawDetail ? (
-                            <pre className="overflow-x-auto text-[10px] text-emerald-400 max-h-48 leading-relaxed">
-                              {(() => {
-                                try {
-                                  return JSON.stringify(JSON.parse(msg.rawDetail), null, 2);
-                                } catch {
-                                  return msg.rawDetail;
-                                }
-                              })()}
-                            </pre>
-                          ) : (
-                            <p className="text-slate-500 italic">No error details logged</p>
-                          )}
-                        </div>
-                      )}
                     </div>
                   );
                 })}
@@ -1139,57 +1086,7 @@ function Dashboard({ email }: { email: string }) {
               </div>
             </div>
 
-            {/* Store Message Content Toggle */}
-            <div className="rounded-3xl border border-purple-100/90 bg-white p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <Label htmlFor="store-toggle" className="text-sm font-bold text-[#1e0a45] cursor-pointer">
-                  Store Message Text For Debugging
-                </Label>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Allows storing message body for admin auditing and live monitoring.
-                </p>
-              </div>
-              <Switch
-                id="store-toggle"
-                checked={data?.settings?.store_message_content ?? false}
-                disabled={isLoading || mutation.isPending}
-                onCheckedChange={(checked) => mutation.mutate({ store_message_content: checked })}
-              />
-            </div>
 
-            {/* WhatsApp Webhook Callback URL */}
-            <div className="rounded-3xl border border-purple-100/90 bg-white p-6 shadow-sm space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-purple-50">
-                <div>
-                  <h3 className="text-base font-bold text-[#1e0a45]">WhatsApp Webhook Configuration</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Configure this callback URL in your Meta for Developers App Dashboard (WhatsApp &gt; Configuration)
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={copyWebhook}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-purple-200 bg-purple-50 px-3.5 py-1.5 text-xs font-semibold text-purple-950 hover:bg-purple-100 transition-colors"
-                >
-                  {copiedWebhook ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600" /> Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5 text-purple-700" /> Copy URL
-                    </>
-                  )}
-                </button>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-600">Callback URL</Label>
-                <code className="block text-xs font-mono break-all text-purple-950 bg-purple-50/50 p-3 rounded-xl border border-purple-100/70">
-                  {webhookUrl()}
-                </code>
-              </div>
-            </div>
           </TabsContent>
           {/* Tab 4: Subscribers & Paywall */}
           <TabsContent value="subscribers" className="space-y-6 mt-0">
