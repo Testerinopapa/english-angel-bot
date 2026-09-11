@@ -26,6 +26,11 @@ import {
   type IncomingInteractiveMessage,
   type IncomingTextMessage,
 } from "@/lib/talknbit.server";
+import {
+  formatPaywallCard,
+  getOrCreateSubscriber,
+  incrementTrialMessageCount,
+} from "@/lib/subscriptions.server";
 
 type Settings = {
   bot_enabled: boolean;
@@ -268,6 +273,44 @@ async function processTextMessage(msg: IncomingTextMessage) {
       }),
     });
     return;
+  }
+
+  // --- Paywall & Subscription Entitlement Enforcement ---
+  if (!isGroup) {
+    const entitlement = await getOrCreateSubscriber(msg.from);
+    if (!entitlement.hasAccess) {
+      const paywallText = formatPaywallCard(entitlement.reason);
+      await sendWhatsAppInteractiveButtons(
+        msg.from,
+        paywallText,
+        [
+          { id: "btn_pay_monthly", title: "Monthly (R$39) 💳" },
+          { id: "btn_pay_yearly", title: "Yearly (40% OFF) 🚀" },
+          { id: "btn_paywall_benefits", title: "What's Included 💡" },
+        ],
+        "Talk'n'Bit Premium • Fluency on WhatsApp",
+      );
+
+      await finish({
+        status: "paywall_shown",
+        has_error: false,
+        message_content: content,
+        error_detail: JSON.stringify({
+          type: "paywall_card",
+          reason: entitlement.reason,
+          status: entitlement.status,
+          plan: entitlement.plan,
+        }),
+      });
+      return;
+    }
+
+    // If on trial, increment usage count in background
+    if (entitlement.isTrial) {
+      incrementTrialMessageCount(msg.from).catch((err) =>
+        console.warn("Error incrementing trial count:", err),
+      );
+    }
   }
 
   // --- Bilingual Questions, Translation & Language Inquiries ---
@@ -586,6 +629,66 @@ async function processInteractiveMessage(msg: IncomingInteractiveMessage) {
       status: "room_command",
       message_content: `[${msg.buttonTitle}] Join Room 101`,
       error_detail: JSON.stringify({ action: "joined_room_101", roomCode: "101" }),
+    });
+  } else if (msg.buttonId === "btn_pay_monthly") {
+    const text = [
+      "💳 *Talk'n'Bit Monthly Plan — R$ 39,90/month*",
+      "",
+      "Unlock unlimited 1-on-1 English coaching, instant grammar cards, and partner rooms:",
+      "👉 https://english-angel-bot.lovable.app/#pricing",
+      "",
+      "Once payment is confirmed, this WhatsApp number will be activated automatically! 🚀",
+    ].join("\n");
+
+    await sendWhatsAppText(msg.from, text);
+    await finish({
+      status: "pay_link_sent",
+      has_error: false,
+      message_content: `[${msg.buttonTitle}] Monthly Checkout`,
+    });
+  } else if (msg.buttonId === "btn_pay_yearly") {
+    const text = [
+      "🚀 *Talk'n'Bit Yearly Plan — R$ 23,90/month (40% OFF)*",
+      "",
+      "Our most popular plan for guaranteed fluency over 12 months!",
+      "👉 https://english-angel-bot.lovable.app/#pricing",
+      "",
+      "Instant activation on this WhatsApp number upon confirmation. 🌟",
+    ].join("\n");
+
+    await sendWhatsAppText(msg.from, text);
+    await finish({
+      status: "pay_link_sent",
+      has_error: false,
+      message_content: `[${msg.buttonTitle}] Yearly Checkout`,
+    });
+  } else if (msg.buttonId === "btn_paywall_benefits") {
+    const text = [
+      "✨ *What's Included in Talk'n'Bit Premium:*",
+      "",
+      "• *Unlimited 1-on-1 AI Practice:* Chat anytime with zero daily limits.",
+      "• *Discreet Grammar Whispers:* Learn naturally without embarrassment.",
+      "• *[Why? 💡] Grammar Cards:* Deep-dive into rules tailored to Portuguese/Spanish speakers.",
+      "• *Study Buddy Rooms:* Practice with real friends with secret AI assistance.",
+      "• *Bilingual Q&A:* Ask how to say anything in Portuguese or Spanish.",
+      "",
+      "Ready to start? Choose a plan below or visit:",
+      "👉 https://english-angel-bot.lovable.app/#pricing",
+    ].join("\n");
+
+    await sendWhatsAppInteractiveButtons(
+      msg.from,
+      text,
+      [
+        { id: "btn_pay_monthly", title: "Monthly (R$39) 💳" },
+        { id: "btn_pay_yearly", title: "Yearly (40% OFF) 🚀" },
+      ],
+      "Talk'n'Bit Premium",
+    );
+    await finish({
+      status: "paywall_benefits_sent",
+      has_error: false,
+      message_content: `[${msg.buttonTitle}]`,
     });
   } else {
     await finish({

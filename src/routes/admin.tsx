@@ -25,6 +25,9 @@ import {
   Layers,
   ChevronDown,
   ChevronUp,
+  CreditCard,
+  Calendar,
+  Zap,
 } from "lucide-react";
 
 import { AdminAuth } from "@/components/AdminAuth";
@@ -36,7 +39,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import { getDashboard, updateSettings } from "@/lib/admin.functions";
+import { getDashboard, updateSettings, grantSubscriberAccess } from "@/lib/admin.functions";
 import type { SettingsUpdate } from "@/lib/admin-schema";
 import { webhookUrl } from "@/lib/webhook-url";
 
@@ -189,6 +192,24 @@ function Dashboard({ email }: { email: string }) {
   const fetchDashboard = useServerFn(getDashboard);
   const saveSettings = useServerFn(updateSettings);
   const queryClient = useQueryClient();
+  const grantAccess = useServerFn(grantSubscriberAccess);
+  const [subSearchQuery, setSubSearchQuery] = useState("");
+  const [subStatusFilter, setSubStatusFilter] = useState<"all" | "active" | "trial" | "expired">("all");
+  const [grantPhone, setGrantPhone] = useState("");
+  const [grantPlan, setGrantPlan] = useState<"monthly" | "yearly" | "lifetime">("monthly");
+  const [grantDays, setGrantDays] = useState(30);
+
+  const grantMutation = useMutation({
+    mutationFn: (input: { phone: string; plan: "monthly" | "yearly" | "lifetime"; days: number }) =>
+      grantAccess({ data: input }),
+    onSuccess: () => {
+      toast.success("Subscriber access updated successfully!");
+      setGrantPhone("");
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to grant access"),
+  });
+
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -228,6 +249,27 @@ function Dashboard({ email }: { email: string }) {
   };
 
   // Parsed and filtered messages
+  const filteredSubscribers = useMemo(() => {
+    const list = (data?.subscribers as any[]) || [];
+    return list.filter((sub) => {
+      const matchSearch =
+        !subSearchQuery.trim() ||
+        sub.phone_number.includes(subSearchQuery.trim().replace(/\D/g, "")) ||
+        (sub.plan && sub.plan.toLowerCase().includes(subSearchQuery.toLowerCase()));
+
+      let matchStatus = true;
+      if (subStatusFilter === "active") {
+        matchStatus = sub.status === "active" || sub.status === "vip";
+      } else if (subStatusFilter === "trial") {
+        matchStatus = sub.status === "trial";
+      } else if (subStatusFilter === "expired") {
+        matchStatus = sub.status === "expired" || sub.status === "cancelled";
+      }
+
+      return matchSearch && matchStatus;
+    });
+  }, [data?.subscribers, subSearchQuery, subStatusFilter]);
+
   const parsedMessages = useMemo(() => {
     const raw = (data?.recent ?? []) as MessageEventRow[];
     return raw.map(parseMessageEvent);
@@ -401,6 +443,15 @@ function Dashboard({ email }: { email: string }) {
                 <MessageSquare className="w-3.5 h-3.5" /> WhatsApp Messages
                 <span className="ml-1 px-1.5 py-0.2 rounded-full bg-purple-200/80 text-[10px] font-extrabold text-purple-950">
                   {parsedMessages.length}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="subscribers"
+                className="rounded-full px-5 py-2 text-xs font-bold data-[state=active]:bg-[#240b4a] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all text-purple-950/70 hover:text-purple-950 flex items-center gap-1.5"
+              >
+                <Users className="w-3.5 h-3.5" /> Subscribers & Paywall
+                <span className="ml-1 px-1.5 py-0.2 rounded-full bg-purple-200/80 text-[10px] font-extrabold text-purple-950">
+                  {data?.subscriberStats?.total ?? 0}
                 </span>
               </TabsTrigger>
               <TabsTrigger
@@ -1033,6 +1084,247 @@ function Dashboard({ email }: { email: string }) {
                 disabled={isLoading || mutation.isPending}
                 onCheckedChange={(checked) => mutation.mutate({ store_message_content: checked })}
               />
+            </div>
+          </TabsContent>
+          {/* Tab 4: Subscribers & Paywall */}
+          <TabsContent value="subscribers" className="space-y-6 mt-0">
+            {/* Subscriber KPI Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="rounded-3xl border border-purple-100 bg-white p-5 shadow-xs">
+                <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
+                  <span>Active Subscribers</span>
+                  <span className="p-1.5 rounded-full bg-emerald-100 text-emerald-800">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  </span>
+                </div>
+                <div className="mt-2 text-2xl font-extrabold text-[#1e0a45]">
+                  {data?.subscriberStats?.active ?? 0}
+                </div>
+                <div className="mt-1 text-[11px] text-emerald-700 font-semibold">Paying & VIP Members</div>
+              </div>
+
+              <div className="rounded-3xl border border-purple-100 bg-white p-5 shadow-xs">
+                <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
+                  <span>Free Trials</span>
+                  <span className="p-1.5 rounded-full bg-amber-100 text-amber-800">
+                    <Zap className="w-3.5 h-3.5" />
+                  </span>
+                </div>
+                <div className="mt-2 text-2xl font-extrabold text-[#1e0a45]">
+                  {data?.subscriberStats?.trial ?? 0}
+                </div>
+                <div className="mt-1 text-[11px] text-amber-700 font-semibold">24h / 15-msg trials</div>
+              </div>
+
+              <div className="rounded-3xl border border-purple-100 bg-white p-5 shadow-xs">
+                <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
+                  <span>Paywalled / Expired</span>
+                  <span className="p-1.5 rounded-full bg-rose-100 text-rose-800">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                  </span>
+                </div>
+                <div className="mt-2 text-2xl font-extrabold text-[#1e0a45]">
+                  {data?.subscriberStats?.expired ?? 0}
+                </div>
+                <div className="mt-1 text-[11px] text-slate-500 font-medium">Shown paywall card</div>
+              </div>
+
+              <div className="rounded-3xl border border-purple-100 bg-white p-5 shadow-xs">
+                <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
+                  <span>Total Users Seen</span>
+                  <span className="p-1.5 rounded-full bg-purple-100 text-purple-800">
+                    <Users className="w-3.5 h-3.5" />
+                  </span>
+                </div>
+                <div className="mt-2 text-2xl font-extrabold text-[#1e0a45]">
+                  {data?.subscriberStats?.total ?? 0}
+                </div>
+                <div className="mt-1 text-[11px] text-purple-700 font-semibold">Tracked numbers</div>
+              </div>
+            </div>
+
+            {/* Grant / Extend Access Box */}
+            <div className="rounded-3xl border border-purple-100 bg-white p-6 shadow-xs space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-900">
+                  <CreditCard className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#1e0a45]">Manual Access Grant & Number Activation</h3>
+                  <p className="text-xs text-slate-500">Instantly activate or extend access for a WhatsApp phone number</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="sm:col-span-2">
+                  <Label htmlFor="grant-phone" className="text-xs font-semibold text-[#1e0a45]">
+                    WhatsApp Number (with country code)
+                  </Label>
+                  <Input
+                    id="grant-phone"
+                    placeholder="e.g. 5513991878104"
+                    value={grantPhone}
+                    onChange={(e) => setGrantPhone(e.target.value)}
+                    className="mt-1 text-xs rounded-xl border-purple-100"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="grant-plan" className="text-xs font-semibold text-[#1e0a45]">
+                    Plan Type
+                  </Label>
+                  <select
+                    id="grant-plan"
+                    value={grantPlan}
+                    onChange={(e) => setGrantPlan(e.target.value as any)}
+                    className="mt-1 w-full text-xs rounded-xl border border-purple-100 bg-white p-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-600"
+                  >
+                    <option value="monthly">Monthly Plan (30 days)</option>
+                    <option value="yearly">Yearly Plan (365 days)</option>
+                    <option value="lifetime">Lifetime VIP (Unlimited)</option>
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    disabled={!grantPhone.trim() || grantMutation.isPending}
+                    onClick={() => {
+                      const days = grantPlan === "yearly" ? 365 : grantPlan === "lifetime" ? 3650 : 30;
+                      grantMutation.mutate({ phone: grantPhone, plan: grantPlan, days });
+                    }}
+                    className="w-full rounded-xl bg-[#240b4a] text-white hover:bg-purple-900 text-xs font-bold h-9"
+                  >
+                    {grantMutation.isPending ? "Activating..." : "Unlock Number 🚀"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter & Search Bar */}
+            <div className="rounded-3xl border border-purple-100 bg-white p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  placeholder="Search subscriber by phone digits or plan..."
+                  value={subSearchQuery}
+                  onChange={(e) => setSubSearchQuery(e.target.value)}
+                  className="pl-9 text-xs rounded-full border-purple-100 bg-purple-50/40"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 overflow-x-auto">
+                {(["all", "active", "trial", "expired"] as const).map((filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    onClick={() => setSubStatusFilter(filter)}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold capitalize transition-all cursor-pointer ${
+                      subStatusFilter === filter
+                        ? "bg-[#240b4a] text-white"
+                        : "bg-purple-50 text-[#1e0a45] hover:bg-purple-100"
+                    }`}
+                  >
+                    {filter}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Subscribers Table */}
+            <div className="rounded-3xl border border-purple-100 bg-white shadow-xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-purple-50/70 border-b border-purple-100 text-[11px] font-bold text-[#1e0a45] uppercase tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4">Phone Number</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4">Plan</th>
+                      <th className="py-3 px-4">Messages Count</th>
+                      <th className="py-3 px-4">Access Expires</th>
+                      <th className="py-3 px-4 text-right">Quick Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-purple-50">
+                    {filteredSubscribers.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
+                          No subscribers match your search filter.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredSubscribers.map((sub: any) => {
+                        const isExpired = sub.status === "expired";
+                        const isActive = sub.status === "active" || sub.status === "vip";
+                        const isTrial = sub.status === "trial";
+                        const expiryDate = sub.subscription_ends_at || sub.trial_ends_at;
+
+                        return (
+                          <tr key={sub.id} className="hover:bg-purple-50/40 transition-colors">
+                            <td className="py-3.5 px-4 font-mono font-bold text-[#1e0a45]">
+                              +{sub.phone_number}
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase ${
+                                  isActive
+                                    ? "bg-emerald-100 text-emerald-900 border border-emerald-200"
+                                    : isTrial
+                                      ? "bg-amber-100 text-amber-900 border border-amber-200"
+                                      : "bg-rose-100 text-rose-900 border border-rose-200"
+                                }`}
+                              >
+                                {sub.status}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4 font-medium text-slate-600 capitalize">
+                              {sub.plan.replace("_", " ")}
+                            </td>
+                            <td className="py-3.5 px-4 text-slate-600">
+                              {isTrial ? (
+                                <span className="font-semibold text-amber-800">
+                                  {sub.messages_count} / 15 msgs
+                                </span>
+                              ) : (
+                                <span className="font-medium text-emerald-800">
+                                  {sub.messages_count} (Unlimited)
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3.5 px-4 text-slate-500 font-mono text-[11px]">
+                              {expiryDate ? new Date(expiryDate).toLocaleString() : "Never"}
+                            </td>
+                            <td className="py-3.5 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={grantMutation.isPending}
+                                  onClick={() => {
+                                    grantMutation.mutate({ phone: sub.phone_number, plan: "monthly", days: 30 });
+                                  }}
+                                  className="h-7 text-[11px] rounded-lg border-purple-100 text-purple-900 hover:bg-purple-100"
+                                >
+                                  +30 Days
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={grantMutation.isPending}
+                                  onClick={() => {
+                                    grantMutation.mutate({ phone: sub.phone_number, plan: "lifetime", days: 3650 });
+                                  }}
+                                  className="h-7 text-[11px] rounded-lg border-purple-200 bg-purple-50 text-purple-950 font-bold hover:bg-purple-200"
+                                >
+                                  VIP
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </TabsContent>
         </Tabs>
