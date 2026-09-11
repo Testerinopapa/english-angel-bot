@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
 import { CHECKOUT_TRANSLATIONS, type SupportedLang } from "@/lib/checkout-translations";
 import { processCheckout, type CheckoutPlanId, type CheckoutPaymentMethod } from "@/lib/checkout.functions";
 
@@ -92,9 +93,29 @@ function CheckoutPage() {
   const [rawPhone, setRawPhone] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>("pix");
   const [installments, setInstallments] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Auto-detect logged-in user to prefill email & name
+  useEffect(() => {
+    let isMounted = true;
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!isMounted || !user) return;
+      if (user.email) {
+        setCurrentUserEmail(user.email);
+        setEmail((prev) => prev || user.email || "");
+      }
+      const fullName = (user.user_metadata?.full_name || user.user_metadata?.name || "") as string;
+      if (fullName) {
+        setName((prev) => prev || fullName);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Credit Card fields (simulated)
   const [cardNumber, setCardNumber] = useState("");
@@ -343,12 +364,44 @@ function CheckoutPage() {
 
             {/* Step 1: Student Information */}
             <div className="rounded-3xl border border-purple-100 bg-white p-6 sm:p-8 shadow-xs space-y-4">
-              <h2 className="text-sm font-bold text-[#1f0a44] pb-2 border-b border-purple-50 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-purple-100 text-purple-900 flex items-center justify-center text-xs font-black">
-                  1
-                </span>
-                <span>{t.checkout.step1Title}</span>
-              </h2>
+              <div className="flex items-center justify-between pb-2 border-b border-purple-50">
+                <h2 className="text-sm font-bold text-[#1f0a44] flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-purple-100 text-purple-900 flex items-center justify-center text-xs font-black">
+                    1
+                  </span>
+                  <span>{t.checkout.step1Title}</span>
+                </h2>
+                {currentUserEmail && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>
+                      {selectedLang === "pt"
+                        ? "Conectado"
+                        : selectedLang === "es"
+                        ? "Conectado"
+                        : "Signed in"}
+                    </span>
+                  </span>
+                )}
+              </div>
+
+              {currentUserEmail && (
+                <div className="rounded-2xl bg-purple-50/80 border border-purple-200/70 p-3 flex items-center justify-between text-xs text-purple-950">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-700 shrink-0" />
+                    <span className="text-[11px] font-medium">
+                      {selectedLang === "pt"
+                        ? `Ativando teste com a conta: ${currentUserEmail}`
+                        : selectedLang === "es"
+                        ? `Activando prueba con la cuenta: ${currentUserEmail}`
+                        : `Activating trial on account: ${currentUserEmail}`}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                    {selectedLang === "pt" ? "Conta Conectada" : selectedLang === "es" ? "Cuenta Conectada" : "Signed In"}
+                  </span>
+                </div>
+              )}
 
               {/* WhatsApp Phone Number with Country Code */}
               <div className="space-y-1.5">
@@ -405,11 +458,25 @@ function CheckoutPage() {
                 />
               </div>
 
-              {/* Email (Optional) */}
+              {/* Email (Optional / Linked) */}
               <div className="space-y-1.5 pt-1">
-                <Label htmlFor="email" className="text-xs font-semibold text-slate-700">
-                  {t.checkout.emailLabel}{" "}
-                  <span className="text-slate-400 font-normal">({t.checkout.emailOptional})</span>
+                <Label htmlFor="email" className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                  <span>
+                    {t.checkout.emailLabel}{" "}
+                    <span className="text-slate-400 font-normal">({t.checkout.emailOptional})</span>
+                  </span>
+                  {currentUserEmail && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      <span>
+                        {selectedLang === "pt"
+                          ? "Vinculado à sua conta"
+                          : selectedLang === "es"
+                          ? "Vinculado a tu cuenta"
+                          : "Linked to your account"}
+                      </span>
+                    </span>
+                  )}
                 </Label>
                 <Input
                   id="email"

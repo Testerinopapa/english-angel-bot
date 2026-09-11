@@ -24,9 +24,11 @@ export interface AdminTranslationSchema {
     switchToSignUp: string;
     switchToSignIn: string;
     signOut: string;
+    studentAccountBadge: string;
     noAccessTitle: string;
     noAccessDesc: string;
     goHome: string;
+    startTrialWithAccount: string;
     signOutAndStartTrial: string;
     signOutAndGoHome: string;
     trialPromptTitle: string;
@@ -173,13 +175,15 @@ export const ADMIN_TRANSLATIONS: Record<SupportedLang, AdminTranslationSchema> =
       switchToSignUp: "First time? Create the admin account",
       switchToSignIn: "Already have an account? Sign in",
       signOut: "Sign out",
-      noAccessTitle: "No admin access",
-      noAccessDesc: "is not registered as an administrator in Talk'n'Bit.",
-      goHome: "Go to Home",
+      studentAccountBadge: "Student Account Active",
+      noAccessTitle: "Welcome to Talk'n'Bit!",
+      noAccessDesc: "is logged in. This back-office panel is reserved for administrative staff, but your student account is ready to practice English on WhatsApp!",
+      goHome: "Return to Home",
+      startTrialWithAccount: "Start 15-Day Free Trial with this Account →",
       signOutAndStartTrial: "Sign Off & Start Free Trial →",
       signOutAndGoHome: "Sign Off & Return Home",
-      trialPromptTitle: "Looking to practice English?",
-      trialPromptDesc: "This portal is reserved for administrative staff. You can sign off and activate your 15-day free trial on WhatsApp right now!",
+      trialPromptTitle: "Ready to Practice English on WhatsApp?",
+      trialPromptDesc: "Activate your 15-day free trial on your account! Chat 1-on-1 with Talk'n'Bit and receive private AI grammar whispers in real time. No credit card required.",
     },
     banner: {
       title: "Process Incoming Messages",
@@ -342,14 +346,16 @@ export const ADMIN_TRANSLATIONS: Record<SupportedLang, AdminTranslationSchema> =
       signUpBtn: "Criar Conta de Administrador",
       switchToSignUp: "Primeira vez? Crie uma conta de administrador",
       switchToSignIn: "Já possui uma conta? Entrar",
-      signOut: "Sair",
-      noAccessTitle: "Sem acesso de administrador",
-      noAccessDesc: "não está cadastrado como administrador no Talk'n'Bit.",
-      goHome: "Ir para o Início",
+      signOut: "Sair da conta",
+      studentAccountBadge: "Conta de Aluno Ativa",
+      noAccessTitle: "Bem-vindo ao Talk'n'Bit!",
+      noAccessDesc: "está conectado. Este painel interno é exclusivo para a equipe de administração, mas sua conta de aluno está pronta para praticar inglês no WhatsApp!",
+      goHome: "Voltar para o Início",
+      startTrialWithAccount: "Iniciar Teste Grátis de 15 Dias com esta Conta →",
       signOutAndStartTrial: "Sair e Iniciar Teste Grátis →",
       signOutAndGoHome: "Sair e Voltar para o Início",
-      trialPromptTitle: "Quer praticar inglês?",
-      trialPromptDesc: "Este painel é exclusivo para a equipe de administração. Desconecte-se abaixo para voltar para a página inicial e ativar seu teste grátis de 15 dias no WhatsApp!",
+      trialPromptTitle: "Pronto para Praticar Inglês no WhatsApp?",
+      trialPromptDesc: "Ative seu teste grátis de 15 dias na sua conta! Converse no WhatsApp e receba correções discretas da IA em tempo real. Sem cartão de crédito.",
     },
     banner: {
       title: "Processar Mensagens Recebidas",
@@ -513,13 +519,15 @@ export const ADMIN_TRANSLATIONS: Record<SupportedLang, AdminTranslationSchema> =
       switchToSignUp: "¿Primera vez? Crea la cuenta de administrador",
       switchToSignIn: "¿Ya tienes una cuenta? Iniciar sesión",
       signOut: "Cerrar sesión",
-      noAccessTitle: "Sin acceso de administrador",
-      noAccessDesc: "no está registrado como administrador en Talk'n'Bit.",
-      goHome: "Ir al Inicio",
+      studentAccountBadge: "Cuenta de Estudiante Activa",
+      noAccessTitle: "¡Bienvenido a Talk'n'Bit!",
+      noAccessDesc: "ha iniciado sesión. Este panel interno está reservado para el personal administrativo, ¡pero tu cuenta de estudiante está lista para practicar inglés en WhatsApp!",
+      goHome: "Volver al Inicio",
+      startTrialWithAccount: "Iniciar Prueba Gratis de 15 Días con esta Cuenta →",
       signOutAndStartTrial: "Cerrar Sesión e Iniciar Prueba Gratis →",
       signOutAndGoHome: "Cerrar Sesión y Volver al Inicio",
-      trialPromptTitle: "¿Quieres practicar inglés?",
-      trialPromptDesc: "Este panel está reservado para el personal administrativo. ¡Puedes cerrar sesión y activar tu prueba gratis de 15 días en WhatsApp ahora mismo!",
+      trialPromptTitle: "¿Listo para Practicar Inglés en WhatsApp?",
+      trialPromptDesc: "¡Activa tu prueba gratis de 15 días en tu cuenta! Chatea en WhatsApp y recibe correcciones privadas de la IA en tiempo real. Sin tarjeta de crédito.",
     },
     banner: {
       title: "Procesar Mensajes Entrantes",

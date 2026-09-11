@@ -430,22 +430,21 @@ function Dashboard({ email }: { email: string }) {
   }, [parsedMessages, statusFilter, searchQuery]);
 
   if (error) {
-    const handleSignOutAndStartTrial = async () => {
-      try {
-        await supabase.auth.signOut();
-      } catch (err) {
-        console.warn("Sign out error:", err);
-      }
+    const handleContinueTrial = () => {
+      // Keep session active and proceed directly to free trial checkout!
       navigate({ to: "/checkout", search: { plan: "trial" } as any });
     };
 
-    const handleSignOutAndGoHome = async () => {
+    const handleGoHome = () => {
+      navigate({ to: "/" });
+    };
+
+    const handleSignOut = async () => {
       try {
         await supabase.auth.signOut();
       } catch (err) {
         console.warn("Sign out error:", err);
       }
-      navigate({ to: "/" });
     };
 
     return (
@@ -470,55 +469,59 @@ function Dashboard({ email }: { email: string }) {
             </div>
           </div>
 
-          <div className="mx-auto w-12 h-12 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
-            <AlertCircle className="w-6 h-6" />
+          <div className="mx-auto w-14 h-14 rounded-full bg-purple-50 border border-purple-200/80 flex items-center justify-center text-purple-700 shadow-xs">
+            <Sparkles className="w-7 h-7 text-purple-700" />
           </div>
 
-          <div>
-            <h1 className="text-xl font-bold text-[#1e0a45]">{t.auth.noAccessTitle}</h1>
-            <p className="mt-2 text-xs text-slate-600 leading-relaxed">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-purple-100/90 px-3 py-0.5 text-[11px] font-bold text-purple-900 border border-purple-200">
+              <Sparkles className="w-3 h-3 text-purple-700" />
+              <span>{t.auth.studentAccountBadge}</span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black text-[#1e0a45]">{t.auth.noAccessTitle}</h1>
+            <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
               Account {email ? <span className="font-semibold text-purple-950">({email})</span> : ""} {t.auth.noAccessDesc}
             </p>
           </div>
 
           {/* Trial Prompt Banner */}
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 text-left space-y-1.5">
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 text-left space-y-1.5 shadow-2xs">
             <div className="flex items-center gap-2 text-xs font-bold text-emerald-950">
-              <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>{t.auth.trialPromptTitle}</span>
             </div>
-            <p className="text-[11px] text-emerald-900/85 leading-relaxed">
+            <p className="text-[11px] text-emerald-900/90 leading-relaxed">
               {t.auth.trialPromptDesc}
             </p>
           </div>
 
-          {/* Primary Action Button: Sign off and start free trial */}
+          {/* Primary Action Button: Continue to Free Trial with Account */}
           <div className="pt-2 space-y-2.5">
             <button
               type="button"
-              onClick={handleSignOutAndStartTrial}
-              className="w-full py-3.5 px-5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-800/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2"
+              onClick={handleContinueTrial}
+              className="w-full py-3.5 px-5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-emerald-800/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2"
             >
               <Sparkles className="w-4 h-4" />
-              <span>{t.auth.signOutAndStartTrial}</span>
+              <span>{t.auth.startTrialWithAccount}</span>
             </button>
 
             <div className="flex items-center justify-center gap-2.5 pt-1">
               <button
                 type="button"
-                className="rounded-full bg-[#fef2f2] border border-[#fecdd3] text-[#e11d48] font-semibold text-xs px-4 py-2 hover:bg-[#fee2e2] hover:border-[#fda4af] hover:text-[#be123c] shadow-2xs transition-all active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
-                onClick={() => supabase.auth.signOut()}
+                onClick={handleGoHome}
+                className="inline-flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:scale-105 transition-all cursor-pointer"
               >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>{t.auth.signOut}</span>
+                <span>{t.auth.goHome}</span>
               </button>
 
               <button
                 type="button"
-                onClick={handleSignOutAndGoHome}
-                className="inline-flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 shadow-2xs hover:scale-105 transition-all cursor-pointer"
+                className="rounded-full bg-[#fef2f2] border border-[#fecdd3] text-[#e11d48] font-semibold text-xs px-4 py-2 hover:bg-[#fee2e2] hover:border-[#fda4af] hover:text-[#be123c] shadow-2xs transition-all active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
+                onClick={handleSignOut}
               >
-                <span>{t.auth.signOutAndGoHome}</span>
+                <LogOut className="w-3.5 h-3.5" />
+                <span>{t.auth.signOut}</span>
               </button>
             </div>
           </div>
