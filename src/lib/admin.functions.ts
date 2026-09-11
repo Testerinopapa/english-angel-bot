@@ -141,3 +141,43 @@ export const createStudyGroup = createServerFn({ method: "POST" })
     return await createWhatsAppGroup(data.subject, data.description);
   });
 
+export const resetSubscriberCount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => {
+    const obj = input as { phone: string };
+    if (!obj?.phone) throw new Error("Phone number is required");
+    return { phone: obj.phone };
+  })
+  .handler(async ({ data, context }) => {
+    const { supabase, userId, claims } = context;
+    await assertAdmin(supabase, userId, claims);
+
+    const { resetSubscriberMessagesCount } = await import("@/lib/subscriptions.server");
+    await resetSubscriberMessagesCount(data.phone);
+    return { ok: true };
+  });
+
+export const deleteSubscriber = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => {
+    const obj = input as { id: string };
+    if (!obj?.id) throw new Error("Subscriber ID is required");
+    return { id: obj.id };
+  })
+  .handler(async ({ data, context }) => {
+    const { supabase, userId, claims } = context;
+    await assertAdmin(supabase, userId, claims);
+
+    let dbClient: any = supabase;
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      if (supabaseAdmin) dbClient = supabaseAdmin;
+    } catch {
+      dbClient = supabase;
+    }
+
+    const { error } = await dbClient.from("subscribers").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+

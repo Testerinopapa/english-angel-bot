@@ -28,6 +28,8 @@ import {
   CreditCard,
   Calendar,
   Zap,
+  RotateCcw,
+  Trash2,
 } from "lucide-react";
 
 import { AdminAuth } from "@/components/AdminAuth";
@@ -39,7 +41,13 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import { getDashboard, updateSettings, grantSubscriberAccess } from "@/lib/admin.functions";
+import {
+  getDashboard,
+  updateSettings,
+  grantSubscriberAccess,
+  resetSubscriberCount,
+  deleteSubscriber,
+} from "@/lib/admin.functions";
 import type { SettingsUpdate } from "@/lib/admin-schema";
 import { webhookUrl } from "@/lib/webhook-url";
 
@@ -208,6 +216,27 @@ function Dashboard({ email }: { email: string }) {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to grant access"),
+  });
+
+  const resetCountFn = useServerFn(resetSubscriberCount);
+  const deleteSubFn = useServerFn(deleteSubscriber);
+
+  const resetCountMutation = useMutation({
+    mutationFn: (phone: string) => resetCountFn({ data: { phone } }),
+    onSuccess: () => {
+      toast.success("Message counter reset to 0");
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to reset count"),
+  });
+
+  const deleteSubMutation = useMutation({
+    mutationFn: (id: string) => deleteSubFn({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Subscriber removed successfully");
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed to remove subscriber"),
   });
 
   const [copiedWebhook, setCopiedWebhook] = useState(false);
@@ -1324,6 +1353,34 @@ function Dashboard({ email }: { email: string }) {
                                   className="h-7 text-[11px] rounded-lg border-purple-200 bg-purple-50 text-purple-950 font-bold hover:bg-purple-200"
                                 >
                                   VIP
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  title="Reset Message Count to 0"
+                                  disabled={resetCountMutation.isPending}
+                                  onClick={() => {
+                                    if (confirm(`Reset message count to 0 for ${sub.phone_number}?`)) {
+                                      resetCountMutation.mutate(sub.phone_number);
+                                    }
+                                  }}
+                                  className="h-7 px-2 text-[11px] rounded-lg border-amber-200 text-amber-900 bg-amber-50 hover:bg-amber-100"
+                                >
+                                  <RotateCcw className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  title="Remove Subscriber"
+                                  disabled={deleteSubMutation.isPending}
+                                  onClick={() => {
+                                    if (confirm(`Remove subscriber ${sub.phone_number}?`)) {
+                                      deleteSubMutation.mutate(sub.id);
+                                    }
+                                  }}
+                                  className="h-7 px-2 text-[11px] rounded-lg border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100"
+                                >
+                                  <Trash2 className="w-3 h-3" />
                                 </Button>
                               </div>
                             </td>

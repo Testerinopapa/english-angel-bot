@@ -38,22 +38,71 @@ export function normalizePhoneNumber(rawPhone: string): string {
 }
 
 /**
+ * Generate all possible phone number variants (handles Brazilian 8 vs 9 digits, with/without 55).
+ * e.g. 5513991878104 <-> 551391878104 <-> 13991878104 <-> 1391878104
+ */
+export function getPhoneVariants(rawPhone: string): string[] {
+  const digits = rawPhone.replace(/\D/g, "");
+  if (!digits) return [];
+  const variants = new Set<string>([digits]);
+
+  if (digits.startsWith("55")) {
+    const local = digits.slice(2);
+    if (local.length === 11 && local[2] === "9") {
+      const ddd = local.slice(0, 2);
+      const rest = local.slice(3);
+      variants.add(`55${ddd}${rest}`);
+      variants.add(local);
+      variants.add(`${ddd}${rest}`);
+    } else if (local.length === 10) {
+      const ddd = local.slice(0, 2);
+      const rest = local.slice(2);
+      variants.add(`55${ddd}9${rest}`);
+      variants.add(local);
+      variants.add(`${ddd}9${rest}`);
+    }
+  } else if (digits.length === 11 && digits[2] === "9") {
+    const ddd = digits.slice(0, 2);
+    const rest = digits.slice(3);
+    variants.add(`55${digits}`);
+    variants.add(`55${ddd}${rest}`);
+    variants.add(`${ddd}${rest}`);
+  } else if (digits.length === 10) {
+    const ddd = digits.slice(0, 2);
+    const rest = digits.slice(2);
+    variants.add(`55${digits}`);
+    variants.add(`55${ddd}9${rest}`);
+    variants.add(`${ddd}9${rest}`);
+  }
+
+  return Array.from(variants);
+}
+
+/**
  * Fetch or initialize a subscriber record for a given WhatsApp phone number.
  * Every new phone number automatically receives a 24-hour / 15-message trial.
  */
 export async function getOrCreateSubscriber(rawPhone: string): Promise<EntitlementResult> {
   const phone = normalizePhoneNumber(rawPhone);
+  const variants = getPhoneVariants(rawPhone);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-  const { data: existing } = await supabaseAdmin
+  const { data: rows } = await supabaseAdmin
     .from("subscribers")
     .select("*")
-    .eq("phone_number", phone)
-    .maybeSingle();
+    .in("phone_number", variants);
 
   let subscriber: SubscriberRow;
 
-  if (!existing) {
+  if (rows && rows.length > 0) {
+    const activeRow = rows.find((r) => r.status === "active" || r.status === "vip") || rows[0];
+    subscriber = activeRow as SubscriberRow;
+
+    if (rows.length > 1) {
+      const obsoleteIds = rows.filter((r) => r.id !== activeRow.id).map((r) => r.id);
+      await supabaseAdmin.from("subscribers").delete().in("id", obsoleteIds);
+    }
+  } else {
     const now = new Date();
     const trialEnds = new Date(now.getTime() + TRIAL_DURATION_HOURS * 60 * 60 * 1000);
 
@@ -85,8 +134,6 @@ export async function getOrCreateSubscriber(rawPhone: string): Promise<Entitleme
       };
     }
     subscriber = inserted as SubscriberRow;
-  } else {
-    subscriber = existing as SubscriberRow;
   }
 
   const now = new Date();
@@ -209,28 +256,70 @@ export async function getOrCreateSubscriber(rawPhone: string): Promise<Entitleme
 }
 
 /**
- * Increment the message counter for a user on trial.
+ * Increment the message counter for ANY subscriber (both trial and active/registered).
  */
-export async function incrementTrialMessageCount(rawPhone: string): Promise<void> {
-  const phone = normalizePhoneNumber(rawPhone);
+export async function incrementSubscriberMessageCount(rawPhone: string): Promise<void> {
+  const variants = getPhoneVariants(rawPhone);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-  // Fetch current count to avoid race condition or raw sql
-  const { data } = await supabaseAdmin
+  const { data: rows } = await supabaseAdmin
     .from("subscribers")
-    .select("messages_count, status")
-    .eq("phone_number", phone)
-    .maybeSingle();
+    .select("id, phone_number, messages_count, status, plan")
+    .in("phone_number", variants);
 
-  if (data && data.status === "trial") {
+  if (rows && rows.length > 0) {
+    const activeRow = rows.find((r) => r.status === "active" || r.status === "vip") || rows[0];
+    const totalCount = rows.reduce((acc, r) => acc + (r.messages_count || 0), 0) + 1;
+
     await supabaseAdmin
       .from("subscribers")
       .update({
-        messages_count: (data.messages_count || 0) + 1,
+        messages_count: totalCount,
         updated_at: new Date().toISOString(),
       })
-      .eq("phone_number", phone);
+      .eq("id", activeRow.id);
+
+    // Clean up duplicate variant rows if any
+    if (rows.length > 1) {
+      const obsoleteIds = rows.filter((r) => r.id !== activeRow.id).map((r) => r.id);
+      await supabaseAdmin.from("subscribers").delete().in("id", obsoleteIds);
+    }
+  } else {
+    const phone = normalizePhoneNumber(rawPhone);
+    const now = new Date();
+    const trialEnds = new Date(now.getTime() + TRIAL_DURATION_HOURS * 60 * 60 * 1000);
+    await supabaseAdmin
+      .from("subscribers")
+      .insert({
+        phone_number: phone,
+        status: "trial",
+        plan: "free_trial",
+        trial_started_at: now.toISOString(),
+        trial_ends_at: trialEnds.toISOString(),
+        messages_count: 1,
+        created_at: now.toISOString(),
+        updated_at: now.toISOString(),
+      });
   }
+}
+
+/** Backward-compatible alias for incrementSubscriberMessageCount */
+export const incrementTrialMessageCount = incrementSubscriberMessageCount;
+
+/**
+ * Reset message count for a subscriber.
+ */
+export async function resetSubscriberMessagesCount(rawPhone: string): Promise<void> {
+  const variants = getPhoneVariants(rawPhone);
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+  await supabaseAdmin
+    .from("subscribers")
+    .update({
+      messages_count: 0,
+      updated_at: new Date().toISOString(),
+    })
+    .in("phone_number", variants);
 }
 
 /**
@@ -243,32 +332,70 @@ export async function activateSubscription(
   notes?: string,
 ): Promise<SubscriberRow | null> {
   const phone = normalizePhoneNumber(rawPhone);
+  const variants = getPhoneVariants(rawPhone);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-  const now = new Date();
-  const endsAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
-
-  const { data, error } = await supabaseAdmin
+  const { data: rows } = await supabaseAdmin
     .from("subscribers")
-    .upsert(
-      {
-        phone_number: phone,
+    .select("*")
+    .in("phone_number", variants);
+
+  const existing = rows && rows.length > 0 ? rows[0] : null;
+  const targetId = existing?.id;
+  const targetPhone = existing ? existing.phone_number : phone;
+  const currentCount = rows ? rows.reduce((acc, r) => acc + (r.messages_count || 0), 0) : 0;
+
+  const now = new Date();
+  const endsAt = durationDays >= 3650
+    ? null
+    : new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+  let updatedRow: SubscriberRow | null = null;
+
+  if (targetId) {
+    const { data, error } = await supabaseAdmin
+      .from("subscribers")
+      .update({
         status: "active",
         plan,
-        subscription_ends_at: endsAt.toISOString(),
+        subscription_ends_at: endsAt ? endsAt.toISOString() : null,
+        messages_count: currentCount,
         updated_at: now.toISOString(),
         ...(notes ? { notes } : {}),
-      },
-      { onConflict: "phone_number" },
-    )
-    .select("*")
-    .single();
+      })
+      .eq("id", targetId)
+      .select("*")
+      .single();
 
-  if (error) {
-    console.error("Failed to activate subscription:", error);
-    return null;
+    if (!error && data) {
+      updatedRow = data as SubscriberRow;
+    }
+
+    if (rows && rows.length > 1) {
+      const obsoleteIds = rows.filter((r) => r.id !== targetId).map((r) => r.id);
+      await supabaseAdmin.from("subscribers").delete().in("id", obsoleteIds);
+    }
+  } else {
+    const { data, error } = await supabaseAdmin
+      .from("subscribers")
+      .insert({
+        phone_number: targetPhone,
+        status: "active",
+        plan,
+        subscription_ends_at: endsAt ? endsAt.toISOString() : null,
+        messages_count: 0,
+        updated_at: now.toISOString(),
+        ...(notes ? { notes } : {}),
+      })
+      .select("*")
+      .single();
+
+    if (!error && data) {
+      updatedRow = data as SubscriberRow;
+    }
   }
-  return data as SubscriberRow;
+
+  return updatedRow;
 }
 
 /**

@@ -29,6 +29,7 @@ import {
 import {
   formatPaywallCard,
   getOrCreateSubscriber,
+  incrementSubscriberMessageCount,
   incrementTrialMessageCount,
 } from "@/lib/subscriptions.server";
 
@@ -82,6 +83,9 @@ async function processTextMessage(msg: IncomingTextMessage) {
     } else {
       await sendWhatsAppText(msg.from, res.message);
     }
+    incrementSubscriberMessageCount(msg.from).catch((err) =>
+      console.warn("incrementSubscriberMessageCount error:", err),
+    );
     await finish({ status: "room_command", message_content: msg.text });
     return;
   }
@@ -99,6 +103,9 @@ async function processTextMessage(msg: IncomingTextMessage) {
         `👋 Your study partner has left the room. Practice session ended.`,
       );
     }
+    incrementSubscriberMessageCount(msg.from).catch((err) =>
+      console.warn("incrementSubscriberMessageCount error:", err),
+    );
     await finish({ status: "room_command", message_content: msg.text });
     return;
   }
@@ -122,6 +129,9 @@ async function processTextMessage(msg: IncomingTextMessage) {
         `🤖 *1-on-1 Mode with Talk'n'Bit*\n\nTo practice with a partner while the bot secretly watches, text:\n👉 */join <room_code>* (e.g. */join 101*)`,
       );
     }
+    incrementSubscriberMessageCount(msg.from).catch((err) =>
+      console.warn("incrementSubscriberMessageCount error:", err),
+    );
     await finish({ status: "room_command", message_content: msg.text });
     return;
   }
@@ -192,6 +202,10 @@ async function processTextMessage(msg: IncomingTextMessage) {
       partner_masked: maskSender(partnerInfo.partnerPhone),
     });
 
+    incrementSubscriberMessageCount(msg.from).catch((err) =>
+      console.warn("incrementSubscriberMessageCount room relay error:", err),
+    );
+
     await finish({
       status: correctionResult?.has_error ? "relay_corrected" : "relay_ok",
       has_error: correctionResult?.has_error ?? false,
@@ -240,6 +254,13 @@ async function processTextMessage(msg: IncomingTextMessage) {
     cleanedText.startsWith("hi i want to subscribe to the talknbit");
 
   if (!isGroup && (isExactIntroGreeting || isIntroCommand || isStandaloneGreeting || isPlanOrTrialInquiry)) {
+    getOrCreateSubscriber(msg.from).catch((e) =>
+      console.warn("getOrCreateSubscriber error:", e),
+    );
+    incrementSubscriberMessageCount(msg.from).catch((err) =>
+      console.warn("incrementSubscriberMessageCount intro error:", err),
+    );
+
     const headline = isPlanOrTrialInquiry
       ? "🎉 *Welcome to Talk'n'Bit!* 🚀\nYour trial and English practice are ready to begin."
       : undefined;
@@ -305,12 +326,10 @@ async function processTextMessage(msg: IncomingTextMessage) {
       return;
     }
 
-    // If on trial, increment usage count in background
-    if (entitlement.isTrial) {
-      incrementTrialMessageCount(msg.from).catch((err) =>
-        console.warn("Error incrementing trial count:", err),
-      );
-    }
+    // Increment message count for all active and trial subscribers!
+    incrementSubscriberMessageCount(msg.from).catch((err) =>
+      console.warn("Error incrementing subscriber count:", err),
+    );
   }
 
   // --- Bilingual Questions, Translation & Language Inquiries ---
