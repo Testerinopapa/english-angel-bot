@@ -7,8 +7,8 @@ import { assertAdmin, buildSettingsPatch } from "@/lib/admin.server";
 export const getDashboard = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    const { supabase, userId, claims } = context;
+    await assertAdmin(supabase, userId, (claims as any)?.email);
 
     const { metaConfigStatus, aiConfigStatus } = await import("@/lib/talknbit.server");
 
@@ -70,8 +70,8 @@ export const updateSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => settingsUpdateSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    const { supabase, userId, claims } = context;
+    await assertAdmin(supabase, userId, (claims as any)?.email);
 
     const { error } = await supabase
       .from("app_settings")
@@ -94,8 +94,8 @@ export const grantSubscriberAccess = createServerFn({ method: "POST" })
     };
   })
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    const { supabase, userId, claims } = context;
+    await assertAdmin(supabase, userId, (claims as any)?.email);
 
     const { activateSubscription } = await import("@/lib/subscriptions.server");
     const updated = await activateSubscription(data.phone, data.plan, data.days, data.notes);
@@ -112,8 +112,8 @@ export const createStudyGroup = createServerFn({ method: "POST" })
     };
   })
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    await assertAdmin(supabase, userId);
+    const { supabase, userId, claims } = context;
+    await assertAdmin(supabase, userId, (claims as any)?.email);
 
     const { createWhatsAppGroup } = await import("@/lib/talknbit.server");
     return await createWhatsAppGroup(data.subject, data.description);

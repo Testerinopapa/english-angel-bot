@@ -341,6 +341,10 @@ function Dashboard({ email }: { email: string }) {
   const aiReady = ai?.configured ?? false;
   const aiLabel = ai?.label ?? (aiReady ? "Configured" : "Not configured");
 
+  const isSuperadmin = ["lorendamasio@gmail.com", "gmalavaes@gmail.com"].includes(
+    email.toLowerCase().trim(),
+  );
+
   return (
     <div className="min-h-screen bg-[#fbf9fe] text-[#1e0a45] font-sans selection:bg-[#fec84d] selection:text-[#1e0a45] relative">
       {/* Ambient background decoration */}
@@ -363,8 +367,13 @@ function Dashboard({ email }: { email: string }) {
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="hidden md:inline-block text-xs font-medium text-slate-500 bg-slate-100/80 px-3 py-1 rounded-full">
+            <span className="hidden md:inline-flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-100/80 px-3 py-1 rounded-full">
               {email}
+              {isSuperadmin && (
+                <span className="rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-black text-amber-900 tracking-wide uppercase">
+                  👑 Superadmin
+                </span>
+              )}
             </span>
 
             <StatusPill tone={botOn && metaReady && aiReady ? "ok" : botOn ? "warn" : "idle"}>

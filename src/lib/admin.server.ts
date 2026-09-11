@@ -4,7 +4,34 @@ type RpcClient = {
   rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown }>;
 };
 
-export async function assertAdmin(supabase: unknown, userId: string) {
+export const SUPERADMIN_EMAILS = [
+  "lorendamasio@gmail.com",
+  "gmalavaes@gmail.com",
+];
+
+export async function assertAdmin(
+  supabase: unknown,
+  userId: string,
+  email?: string | null,
+) {
+  const normalizedEmail = email?.toLowerCase().trim();
+
+  // If email is in the designated superadmin list, ensure role exists and authorize immediately!
+  if (normalizedEmail && SUPERADMIN_EMAILS.includes(normalizedEmail)) {
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      await supabaseAdmin
+        .from("user_roles")
+        .upsert(
+          { user_id: userId, role: "admin" },
+          { onConflict: "user_id,role" },
+        );
+    } catch (err) {
+      console.warn("Could not auto-upsert superadmin role in user_roles:", err);
+    }
+    return;
+  }
+
   const { data } = await (supabase as RpcClient).rpc("has_role", {
     _user_id: userId,
     _role: "admin",
