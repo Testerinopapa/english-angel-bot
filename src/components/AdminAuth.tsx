@@ -1,15 +1,40 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowLeft, ShieldCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
+import { ADMIN_TRANSLATIONS, type SupportedLang } from "@/lib/admin-translations";
 
 export function AdminAuth() {
+  const [selectedLang, setSelectedLang] = useState<SupportedLang>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("talknbit_lang") as SupportedLang;
+      if (saved && (saved === "en" || saved === "pt" || saved === "es")) {
+        return saved;
+      }
+      const browserLang = navigator.language?.toLowerCase() || "";
+      if (browserLang.startsWith("pt")) return "pt";
+      if (browserLang.startsWith("es")) return "es";
+    }
+    return "en";
+  });
+
+  const t = ADMIN_TRANSLATIONS[selectedLang] || ADMIN_TRANSLATIONS.en;
+
+  const handleSelectLanguage = (lang: SupportedLang) => {
+    setSelectedLang(lang);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("talknbit_lang", lang);
+    }
+    const names = { en: "English", pt: "Português (Brasil)", es: "Español" };
+    toast.success(`Language set to ${names[lang]}`);
+  };
+
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -87,11 +112,30 @@ export function AdminAuth() {
             to="/"
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-900/70 hover:text-purple-950 transition-colors"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to site
+            <ArrowLeft className="w-3.5 h-3.5" /> {t.auth.backToSite}
           </Link>
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-purple-900 bg-purple-100/80 px-2.5 py-1 rounded-full border border-purple-200/60">
-            <ShieldCheck className="w-3.5 h-3.5 text-purple-700" /> Admin
-          </span>
+          <div className="flex items-center gap-2">
+            {/* Language Switcher Pills */}
+            <div className="flex items-center bg-purple-50/90 p-0.5 rounded-full border border-purple-200/70 text-[11px] font-bold">
+              {(["en", "pt", "es"] as const).map((lang) => (
+                <button
+                  key={lang}
+                  type="button"
+                  onClick={() => handleSelectLanguage(lang)}
+                  className={`px-2 py-0.5 rounded-full transition-all cursor-pointer uppercase ${
+                    selectedLang === lang
+                      ? "bg-[#240b4a] text-white shadow-xs"
+                      : "text-purple-900/80 hover:text-purple-950"
+                  }`}
+                >
+                  {lang}
+                </button>
+              ))}
+            </div>
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-purple-900 bg-purple-100/80 px-2.5 py-1 rounded-full border border-purple-200/60">
+              <ShieldCheck className="w-3.5 h-3.5 text-purple-700" /> {t.auth.adminBadge}
+            </span>
+          </div>
         </div>
 
         {/* Brand identity */}
@@ -104,10 +148,10 @@ export function AdminAuth() {
             />
           </div>
           <h1 className="text-2xl font-extrabold text-[#1e0a45] mt-3 tracking-tight">
-            Admin Portal
+            {t.auth.heading}
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Sign in to manage bot prompts, rooms, and live telemetry
+            {t.auth.subheading}
           </p>
         </div>
 
@@ -138,7 +182,7 @@ export function AdminAuth() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
               />
             </svg>
-            <span>Continue with Google</span>
+            <span>{t.auth.googleBtn}</span>
           </Button>
         </div>
 
@@ -149,7 +193,7 @@ export function AdminAuth() {
           </div>
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-white px-3 text-slate-400 text-[11px] font-medium tracking-wider">
-              Or with email
+              {t.auth.orEmail}
             </span>
           </div>
         </div>
@@ -158,7 +202,7 @@ export function AdminAuth() {
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="email" className="text-xs font-semibold text-slate-700">
-              Admin email
+              {t.auth.emailLabel}
             </Label>
             <Input
               id="email"
@@ -173,7 +217,7 @@ export function AdminAuth() {
 
           <div className="space-y-1.5">
             <Label htmlFor="password" className="text-xs font-semibold text-slate-700">
-              Password
+              {t.auth.passwordLabel}
             </Label>
             <Input
               id="password"
@@ -191,7 +235,7 @@ export function AdminAuth() {
             className="w-full rounded-full bg-gradient-to-r from-[#240b4a] via-[#35106b] to-[#170535] py-5 text-xs font-semibold text-white shadow-md shadow-purple-950/20 hover:scale-[1.01] active:scale-[0.99] transition-all"
             disabled={busy}
           >
-            {mode === "signin" ? "Sign in to Dashboard" : "Create Admin Account"}
+            {mode === "signin" ? t.auth.signInBtn : t.auth.signUpBtn}
           </Button>
         </form>
 
@@ -200,11 +244,11 @@ export function AdminAuth() {
           <button
             type="button"
             onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-            className="text-xs text-purple-900/70 hover:text-purple-950 font-medium underline underline-offset-4 transition-colors"
+            className="text-xs text-purple-900/70 hover:text-purple-950 font-medium underline underline-offset-4 transition-colors cursor-pointer"
           >
             {mode === "signin"
-              ? "First time? Create the admin account"
-              : "Already have an account? Sign in"}
+              ? t.auth.switchToSignUp
+              : t.auth.switchToSignIn}
           </button>
         </div>
       </div>

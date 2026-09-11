@@ -28,6 +28,7 @@ import {
   Zap,
   RotateCcw,
   Trash2,
+  LogOut,
 } from "lucide-react";
 
 import { AdminAuth } from "@/components/AdminAuth";
@@ -47,6 +48,7 @@ import {
   deleteSubscriber,
 } from "@/lib/admin.functions";
 import type { SettingsUpdate } from "@/lib/admin-schema";
+import { ADMIN_TRANSLATIONS, type SupportedLang } from "@/lib/admin-translations";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -101,7 +103,11 @@ const statusLabels: Record<string, { label: string; tone: "ok" | "warn" | "bad" 
   received: { label: "Message Received", tone: "idle" },
 };
 
-function getStatusInfo(status: string): { label: string; tone: "ok" | "warn" | "bad" | "idle" } {
+function getStatusInfo(status: string, lang: SupportedLang = "en"): { label: string; tone: "ok" | "warn" | "bad" | "idle" } {
+  const dict = (ADMIN_TRANSLATIONS[lang] || ADMIN_TRANSLATIONS.en).statusLabels;
+  if (dict[status]) {
+    return dict[status];
+  }
   if (statusLabels[status]) {
     return statusLabels[status];
   }
@@ -274,6 +280,30 @@ function AdminDashboard() {
 }
 
 function Dashboard({ email }: { email: string }) {
+  const [selectedLang, setSelectedLang] = useState<SupportedLang>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("talknbit_lang") as SupportedLang;
+      if (saved && (saved === "en" || saved === "pt" || saved === "es")) {
+        return saved;
+      }
+      const browserLang = navigator.language?.toLowerCase() || "";
+      if (browserLang.startsWith("pt")) return "pt";
+      if (browserLang.startsWith("es")) return "es";
+    }
+    return "en";
+  });
+
+  const t = ADMIN_TRANSLATIONS[selectedLang] || ADMIN_TRANSLATIONS.en;
+
+  const handleSelectLanguage = (lang: SupportedLang) => {
+    setSelectedLang(lang);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("talknbit_lang", lang);
+    }
+    const names = { en: "English", pt: "Português (Brasil)", es: "Español" };
+    toast.success(`Language set to ${names[lang]}`);
+  };
+
   const fetchDashboard = useServerFn(getDashboard);
   const saveSettings = useServerFn(updateSettings);
   const queryClient = useQueryClient();
@@ -402,26 +432,45 @@ function Dashboard({ email }: { email: string }) {
     return (
       <main className="min-h-screen bg-gradient-to-b from-[#fbf9fe] to-purple-50/50 flex items-center justify-center p-4 text-center">
         <div className="w-full max-w-md rounded-3xl border border-purple-100 bg-white p-8 shadow-xl shadow-purple-950/5">
+          <div className="flex justify-end mb-3">
+            <div className="flex items-center bg-purple-50/90 p-0.5 rounded-full border border-purple-200/70 text-[11px] font-bold">
+              {(["en", "pt", "es"] as const).map((lang) => (
+                <button
+                  key={lang}
+                  type="button"
+                  onClick={() => handleSelectLanguage(lang)}
+                  className={`px-2 py-0.5 rounded-full transition-all cursor-pointer uppercase ${
+                    selectedLang === lang
+                      ? "bg-[#240b4a] text-white shadow-xs"
+                      : "text-purple-900/80 hover:text-purple-950"
+                  }`}
+                >
+                  {lang}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="mx-auto w-12 h-12 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 mb-4">
             <AlertCircle className="w-6 h-6" />
           </div>
-          <h1 className="text-xl font-bold text-[#1e0a45]">No admin access</h1>
+          <h1 className="text-xl font-bold text-[#1e0a45]">{t.auth.noAccessTitle}</h1>
           <p className="mt-2 text-xs text-slate-600 leading-relaxed">
-            Account {email ? <span className="font-semibold text-purple-950">({email})</span> : ""} is not registered as an administrator in Talk'n'Bit.
+            Account {email ? <span className="font-semibold text-purple-950">({email})</span> : ""} {t.auth.noAccessDesc}
           </p>
           <div className="mt-6 flex items-center justify-center gap-3">
-            <Button
-              variant="outline"
-              className="rounded-full border-slate-200 text-xs px-5 hover:bg-rose-50 hover:text-rose-700"
+            <button
+              type="button"
+              className="rounded-full bg-[#fef2f2] border border-[#fecdd3] text-[#e11d48] font-semibold text-xs px-5 py-2 hover:bg-[#fee2e2] hover:border-[#fda4af] hover:text-[#be123c] shadow-2xs transition-all active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
               onClick={() => supabase.auth.signOut()}
             >
-              Sign out
-            </Button>
+              <LogOut className="w-3.5 h-3.5" />
+              <span>{t.auth.signOut}</span>
+            </button>
             <Link
               to="/"
               className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#240b4a] to-[#170535] px-5 py-2 text-xs font-semibold text-white shadow-sm hover:scale-105 transition-all"
             >
-              Go to Home
+              {t.auth.goHome}
             </Link>
           </div>
         </div>
@@ -457,7 +506,7 @@ function Dashboard({ email }: { email: string }) {
               />
             </Link>
             <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-purple-100/80 px-3 py-1 text-xs font-bold text-purple-900 border border-purple-200/70">
-              <ShieldCheck className="w-3.5 h-3.5 text-purple-700" /> Admin Portal
+              <ShieldCheck className="w-3.5 h-3.5 text-purple-700" /> {t.nav.adminPortal}
             </span>
           </div>
 
@@ -466,31 +515,50 @@ function Dashboard({ email }: { email: string }) {
               {email}
               {isSuperadmin && (
                 <span className="rounded-full bg-amber-100 border border-amber-300 px-2 py-0.5 text-[10px] font-black text-amber-900 tracking-wide uppercase">
-                  👑 Superadmin
+                  👑 {t.nav.superadmin}
                 </span>
               )}
             </span>
 
             <StatusPill tone={botOn && metaReady && aiReady ? "ok" : botOn ? "warn" : "idle"}>
-              {botOn ? (metaReady && aiReady ? "Live" : "On, incomplete setup") : "Paused"}
+              {botOn ? (metaReady && aiReady ? t.nav.botLive : t.nav.botIncomplete) : t.nav.botPaused}
             </StatusPill>
+
+            {/* Language Switcher Pills */}
+            <div className="flex items-center bg-purple-50/90 p-0.5 rounded-full border border-purple-200/70 text-[11px] font-bold">
+              {(["en", "pt", "es"] as const).map((lang) => (
+                <button
+                  key={lang}
+                  type="button"
+                  onClick={() => handleSelectLanguage(lang)}
+                  className={`px-2 py-1 rounded-full transition-all cursor-pointer uppercase ${
+                    selectedLang === lang
+                      ? "bg-[#240b4a] text-white shadow-xs"
+                      : "text-purple-900/80 hover:text-purple-950"
+                  }`}
+                  title={lang === "en" ? "English" : lang === "pt" ? "Português" : "Español"}
+                >
+                  {lang}
+                </button>
+              ))}
+            </div>
 
             <Link
               to="/"
               className="inline-flex items-center gap-1.5 rounded-full border border-purple-900/15 bg-purple-50/70 px-3.5 py-1.5 text-xs font-semibold text-[#1e0a45] transition-all hover:bg-purple-100 hover:border-purple-900/30"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">View Site</span>
+              <span className="hidden sm:inline">{t.nav.viewSite}</span>
             </Link>
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-full border-slate-200 text-xs px-3.5 py-1.5 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 transition-colors"
+            <button
+              type="button"
               onClick={() => supabase.auth.signOut()}
+              className="rounded-full bg-[#fef2f2] border border-[#fecdd3] text-[#e11d48] font-semibold text-xs px-3.5 py-1.5 hover:bg-[#fee2e2] hover:border-[#fda4af] hover:text-[#be123c] shadow-2xs transition-all active:scale-95 cursor-pointer inline-flex items-center gap-1.5"
             >
-              Sign out
-            </Button>
+              <LogOut className="w-3.5 h-3.5" />
+              <span>{t.nav.signOut}</span>
+            </button>
           </div>
         </div>
       </header>
@@ -509,17 +577,17 @@ function Dashboard({ email }: { email: string }) {
             </div>
             <div>
               <Label htmlFor="bot-toggle" className="text-base font-bold text-[#1e0a45] cursor-pointer">
-                Process Incoming Messages
+                {t.banner.title}
               </Label>
               <p className="text-xs text-slate-500 mt-0.5 max-w-xl leading-relaxed">
-                When enabled, Talk'n'Bit checks student grammar and sends real-time WhatsApp corrections. When paused, messages are logged without replies.
+                {t.banner.desc}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             <span className={`text-xs font-semibold ${botOn ? "text-emerald-600" : "text-slate-400"}`}>
-              {botOn ? "Active" : "Disabled"}
+              {botOn ? t.banner.active : t.banner.disabled}
             </span>
             <Switch
               id="bot-toggle"
@@ -538,13 +606,13 @@ function Dashboard({ email }: { email: string }) {
                 value="overview"
                 className="rounded-full px-5 py-2 text-xs font-bold data-[state=active]:bg-[#240b4a] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all text-purple-950/70 hover:text-purple-950 flex items-center gap-1.5"
               >
-                <Activity className="w-3.5 h-3.5" /> Overview
+                <Activity className="w-3.5 h-3.5" /> {t.tabs.overview}
               </TabsTrigger>
               <TabsTrigger
                 value="messages"
                 className="rounded-full px-5 py-2 text-xs font-bold data-[state=active]:bg-[#240b4a] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all text-purple-950/70 hover:text-purple-950 flex items-center gap-1.5"
               >
-                <MessageSquare className="w-3.5 h-3.5" /> WhatsApp Messages
+                <MessageSquare className="w-3.5 h-3.5" /> {t.tabs.messages}
                 <span className="ml-1 px-1.5 py-0.2 rounded-full bg-purple-200/80 text-[10px] font-extrabold text-purple-950">
                   {parsedMessages.length}
                 </span>
@@ -553,7 +621,7 @@ function Dashboard({ email }: { email: string }) {
                 value="subscribers"
                 className="rounded-full px-5 py-2 text-xs font-bold data-[state=active]:bg-[#240b4a] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all text-purple-950/70 hover:text-purple-950 flex items-center gap-1.5"
               >
-                <Users className="w-3.5 h-3.5" /> Subscribers & Paywall
+                <Users className="w-3.5 h-3.5" /> {t.tabs.subscribers}
                 <span className="ml-1 px-1.5 py-0.2 rounded-full bg-purple-200/80 text-[10px] font-extrabold text-purple-950">
                   {data?.subscriberStats?.total ?? 0}
                 </span>
@@ -562,14 +630,14 @@ function Dashboard({ email }: { email: string }) {
                 value="settings"
                 className="rounded-full px-5 py-2 text-xs font-bold data-[state=active]:bg-[#240b4a] data-[state=active]:text-white data-[state=active]:shadow-sm transition-all text-purple-950/70 hover:text-purple-950 flex items-center gap-1.5"
               >
-                <SettingsIcon className="w-3.5 h-3.5" /> Settings
+                <SettingsIcon className="w-3.5 h-3.5" /> {t.tabs.settings}
               </TabsTrigger>
             </TabsList>
 
             {/* Quick action: Refresh feed */}
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1 text-[11px] text-slate-400 font-medium">
-                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live monitor
+                <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" /> {t.tabs.liveMonitor}
               </span>
               <Button
                 variant="outline"
@@ -579,7 +647,7 @@ function Dashboard({ email }: { email: string }) {
                 disabled={isFetching}
               >
                 <RefreshCw className={`w-3 h-3 ${isFetching ? "animate-spin text-purple-700" : ""}`} />
-                <span>{isFetching ? "Refreshing..." : "Refresh"}</span>
+                <span>{isFetching ? t.tabs.refreshing : t.tabs.refresh}</span>
               </Button>
             </div>
           </div>
@@ -589,24 +657,24 @@ function Dashboard({ email }: { email: string }) {
             {/* Stat Cards */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatCard
-                label="Messages Received"
+                label={t.overview.kpiMessages}
                 value={data?.stats.total ?? 0}
                 tone="default"
               />
               <StatCard
-                label="Corrections Sent"
+                label={t.overview.kpiCorrections}
                 value={data?.stats.corrected ?? 0}
                 tone="amber"
-                highlight="Warm feedback"
+                highlight={t.overview.kpiCorrectionsHighlight}
               />
               <StatCard
-                label="Clean Messages"
+                label={t.overview.kpiClean}
                 value={data?.stats.noError ?? 0}
                 tone="green"
-                highlight="No errors"
+                highlight={t.overview.kpiCleanHighlight}
               />
               <StatCard
-                label="Failed Invocations"
+                label={t.overview.kpiFailed}
                 value={data?.stats.failed ?? 0}
                 tone="red"
               />
@@ -617,20 +685,20 @@ function Dashboard({ email }: { email: string }) {
               <div className="flex items-center justify-between pb-3 border-b border-purple-50">
                 <div className="flex items-center gap-2">
                   <MessageCircle className="w-5 h-5 text-emerald-600" />
-                  <h2 className="text-base font-bold text-[#1e0a45]">Latest WhatsApp Messages</h2>
+                  <h2 className="text-base font-bold text-[#1e0a45]">{t.overview.latestMessages}</h2>
                 </div>
                 <button
                   type="button"
                   onClick={() => setActiveTab("messages")}
-                  className="text-xs font-semibold text-purple-700 hover:text-purple-950 transition-colors flex items-center gap-1"
+                  className="text-xs font-semibold text-purple-700 hover:text-purple-950 transition-colors flex items-center gap-1 cursor-pointer"
                 >
-                  Open Live Monitor →
+                  {t.overview.openLiveMonitor}
                 </button>
               </div>
 
               <div className="space-y-3">
                 {parsedMessages.slice(0, 5).map((msg) => {
-                  const s = getStatusInfo(msg.status);
+                  const s = getStatusInfo(msg.status, selectedLang);
                   return (
                     <div
                       key={msg.id}
@@ -675,7 +743,7 @@ function Dashboard({ email }: { email: string }) {
                           {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         <span className="text-[10px] text-purple-600 font-semibold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
-                          View details →
+                          {t.overview.viewDetails}
                         </span>
                       </div>
                     </div>
@@ -684,7 +752,7 @@ function Dashboard({ email }: { email: string }) {
 
                 {parsedMessages.length === 0 && (
                   <p className="text-center py-6 text-xs text-slate-400">
-                    No messages received yet. Send a WhatsApp message to test!
+                    {t.overview.noMessages}
                   </p>
                 )}
               </div>
@@ -699,48 +767,48 @@ function Dashboard({ email }: { email: string }) {
                   </div>
                   <div>
                     <h2 className="text-base font-bold text-[#1e0a45]">
-                      Study Buddy Practice Rooms (Secret-Watcher Mode)
+                      {t.overview.studyBuddyTitle}
                     </h2>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Two students chat directly via Talk'n'Bit while AI quietly observes and whispers corrections.
+                      {t.overview.studyBuddySubtitle}
                     </p>
                   </div>
                 </div>
-                <StatusPill tone="ok">Active</StatusPill>
+                <StatusPill tone="ok">{t.overview.studyBuddyActive}</StatusPill>
               </div>
 
               <div className="grid md:grid-cols-2 gap-4 pt-1">
                 <div className="rounded-2xl bg-purple-50/50 border border-purple-100 p-4 space-y-2">
-                  <p className="text-xs font-bold text-[#1e0a45]">How Students Connect:</p>
+                  <p className="text-xs font-bold text-[#1e0a45]">{t.overview.howConnect}</p>
                   <ul className="space-y-1.5 text-xs text-slate-600">
                     <li className="flex items-center gap-2">
                       <span className="text-purple-600">1.</span>
-                      <span>Student A texts <code className="bg-purple-100 px-1.5 py-0.5 rounded font-mono font-bold text-purple-900">/join 101</code></span>
+                      <span>{t.overview.step1} <code className="bg-purple-100 px-1.5 py-0.5 rounded font-mono font-bold text-purple-900">/join 101</code></span>
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="text-purple-600">2.</span>
-                      <span>Student B texts <code className="bg-purple-100 px-1.5 py-0.5 rounded font-mono font-bold text-purple-900">/join 101</code></span>
+                      <span>{t.overview.step2} <code className="bg-purple-100 px-1.5 py-0.5 rounded font-mono font-bold text-purple-900">/join 101</code></span>
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="text-purple-600">3.</span>
-                      <span>Both are instantly paired and messages relay in real-time</span>
+                      <span>{t.overview.step3}</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="text-purple-600">4.</span>
-                      <span>Either partner texts <code className="bg-purple-100 px-1.5 py-0.5 rounded font-mono font-bold text-purple-900">/leave</code> to disconnect</span>
+                      <span>{t.overview.step4} <code className="bg-purple-100 px-1.5 py-0.5 rounded font-mono font-bold text-purple-900">/leave</code></span>
                     </li>
                   </ul>
                 </div>
 
                 <div className="rounded-2xl bg-[#fef9eb] border border-amber-200/70 p-4 flex flex-col justify-between">
                   <div>
-                    <p className="text-xs font-bold text-amber-950">Secret-Watcher Intelligence</p>
+                    <p className="text-xs font-bold text-amber-950">{t.overview.watcherTitle}</p>
                     <p className="text-xs text-amber-900/80 mt-1 leading-relaxed">
-                      Neither student sees their partner get corrected in public. Corrections arrive as private whispers with <strong>Why? 💡</strong> explanations directly from the bot.
+                      {t.overview.watcherDesc}
                     </p>
                   </div>
                   <div className="pt-3 border-t border-amber-200/50 flex items-center justify-between text-xs">
-                    <span className="font-semibold text-amber-950">Room Private DMs Delivered:</span>
+                    <span className="font-semibold text-amber-950">{t.overview.watcherDms}</span>
                     <span className="font-mono font-extrabold text-purple-900 bg-white px-2.5 py-0.5 rounded-full border border-amber-300">
                       {data?.stats.groupCorrections ?? 0}
                     </span>
@@ -760,7 +828,7 @@ function Dashboard({ email }: { email: string }) {
                   <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <Input
                     type="text"
-                    placeholder="Search WhatsApp messages, numbers, corrections..."
+                    placeholder={t.messages.searchPlaceholder}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="rounded-full border-slate-200 pl-10 text-xs py-2 bg-slate-50/50 focus:bg-white focus:border-purple-600"
@@ -780,24 +848,24 @@ function Dashboard({ email }: { email: string }) {
                   <button
                     type="button"
                     onClick={() => setViewMode("feed")}
-                    className={`px-3 py-1 text-xs font-semibold rounded-full transition-all flex items-center gap-1.5 ${
+                    className={`px-3 py-1 text-xs font-semibold rounded-full transition-all flex items-center gap-1.5 cursor-pointer ${
                       viewMode === "feed"
                         ? "bg-white text-[#1e0a45] shadow-xs"
                         : "text-slate-500 hover:text-slate-800"
                     }`}
                   >
-                    <Layers className="w-3.5 h-3.5" /> Chat Feed
+                    <Layers className="w-3.5 h-3.5" /> {t.messages.chatFeed}
                   </button>
                   <button
                     type="button"
                     onClick={() => setViewMode("table")}
-                    className={`px-3 py-1 text-xs font-semibold rounded-full transition-all flex items-center gap-1.5 ${
+                    className={`px-3 py-1 text-xs font-semibold rounded-full transition-all flex items-center gap-1.5 cursor-pointer ${
                       viewMode === "table"
                         ? "bg-white text-[#1e0a45] shadow-xs"
                         : "text-slate-500 hover:text-slate-800"
                     }`}
                   >
-                    <Filter className="w-3.5 h-3.5" /> Table
+                    <Filter className="w-3.5 h-3.5" /> {t.messages.table}
                   </button>
                 </div>
               </div>
@@ -806,34 +874,34 @@ function Dashboard({ email }: { email: string }) {
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <FilterChip
                   active={statusFilter === "all"}
-                  label="All Messages"
+                  label={t.messages.filterAll}
                   count={parsedMessages.length}
                   onClick={() => setStatusFilter("all")}
                 />
                 <FilterChip
                   active={statusFilter === "corrected"}
-                  label="Mistakes Corrected"
+                  label={t.messages.filterCorrected}
                   count={parsedMessages.filter((m) => m.status.includes("corrected") || m.hasError).length}
                   onClick={() => setStatusFilter("corrected")}
                   badgeColor="amber"
                 />
                 <FilterChip
                   active={statusFilter === "clean"}
-                  label="Natural / No Mistake"
+                  label={t.messages.filterClean}
                   count={parsedMessages.filter((m) => m.status === "no_error" || m.status === "relay_ok").length}
                   onClick={() => setStatusFilter("clean")}
                   badgeColor="green"
                 />
                 <FilterChip
                   active={statusFilter === "rooms"}
-                  label="Study Buddy Rooms"
+                  label={t.messages.filterRooms}
                   count={parsedMessages.filter((m) => m.isRoom || m.status === "room_command").length}
                   onClick={() => setStatusFilter("rooms")}
                   badgeColor="purple"
                 />
                 <FilterChip
                   active={statusFilter === "failed"}
-                  label="Issues / Failed"
+                  label={t.messages.filterFailed}
                   count={parsedMessages.filter((m) => m.status === "failed" || m.status === "skipped_disabled").length}
                   onClick={() => setStatusFilter("failed")}
                   badgeColor="red"
@@ -845,7 +913,7 @@ function Dashboard({ email }: { email: string }) {
             {viewMode === "feed" && (
               <div className="space-y-4">
                 {filteredMessages.map((msg) => {
-                  const s = getStatusInfo(msg.status);
+                  const s = getStatusInfo(msg.status, selectedLang);
 
                   return (
                     <div
@@ -864,14 +932,14 @@ function Dashboard({ email }: { email: string }) {
 
                           {msg.isRoom && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-0.5 text-[11px] font-bold text-purple-900 border border-purple-200">
-                              <Users className="w-3 h-3" /> Room #{msg.roomCode}
+                              <Users className="w-3 h-3" /> {t.messages.room} #{msg.roomCode}
                               {msg.partnerMasked && <span className="text-purple-700 font-normal">→ {msg.partnerMasked}</span>}
                             </span>
                           )}
 
                           {msg.isGroup && (
                             <span className="rounded-full bg-blue-50 text-blue-800 px-2 py-0.5 text-[11px] font-bold border border-blue-200">
-                              WhatsApp Group
+                              {t.messages.group}
                             </span>
                           )}
 
@@ -888,10 +956,10 @@ function Dashboard({ email }: { email: string }) {
                         {/* Student WhatsApp Bubble */}
                         <div className="flex items-start gap-2.5">
                           <span className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider shrink-0 w-16">
-                            Student:
+                            {t.messages.student}
                           </span>
                           <div className="bg-[#e7fed6] border border-[#cbebb2] text-[#0f2c14] rounded-2xl rounded-tl-none px-4 py-2.5 text-xs sm:text-sm font-medium shadow-2xs max-w-2xl leading-relaxed">
-                            {msg.studentText || <span className="text-slate-400 italic">No message text recorded</span>}
+                            {msg.studentText || <span className="text-slate-400 italic">{t.messages.noText}</span>}
                           </div>
                         </div>
 
@@ -899,13 +967,13 @@ function Dashboard({ email }: { email: string }) {
                         {(msg.botReply || msg.correctedText) && (
                           <div className="flex items-start gap-2.5">
                             <span className="text-xs font-bold text-purple-900 mt-1 uppercase tracking-wider shrink-0 w-16 flex items-center gap-1">
-                              <img src="/images/robot.png" alt="Bot" className="w-3.5 h-3.5 object-contain" /> Bot:
+                              <img src="/images/robot.png" alt="Bot" className="w-3.5 h-3.5 object-contain" /> {t.messages.bot}
                             </span>
                             <div className="bg-[#fef9eb] border border-amber-200/80 rounded-2xl rounded-tl-none p-3.5 text-xs space-y-2 max-w-2xl shadow-2xs">
                               <p className="font-semibold text-slate-800">
                                 {msg.correctedText ? (
                                   <>
-                                    You meant: <span className="text-purple-950 font-bold">"{msg.correctedText}"</span>
+                                    {t.messages.youMeant} <span className="text-purple-950 font-bold">"{msg.correctedText}"</span>
                                   </>
                                 ) : (
                                   <span className="text-purple-950 font-medium">{msg.botReply}</span>
@@ -914,7 +982,7 @@ function Dashboard({ email }: { email: string }) {
 
                               {msg.explanation && (
                                 <div className="pt-2 border-t border-amber-200/60 text-slate-700 text-[11px] flex items-start gap-1.5">
-                                  <span className="text-amber-600 font-bold shrink-0">💡 Why?</span>
+                                  <span className="text-amber-600 font-bold shrink-0">{t.messages.why}</span>
                                   <span>{msg.explanation}</span>
                                 </div>
                               )}
@@ -930,7 +998,7 @@ function Dashboard({ email }: { email: string }) {
                             </span>
                             <div className="bg-emerald-50/70 border border-emerald-100 text-emerald-800 rounded-xl px-3.5 py-1.5 text-xs font-medium inline-flex items-center gap-1.5">
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Natural English detected — no correction needed.</span>
+                              <span>{t.messages.cleanFeedback}</span>
                             </div>
                           </div>
                         )}
@@ -942,7 +1010,7 @@ function Dashboard({ email }: { email: string }) {
                               Action:
                             </span>
                             <div className="bg-purple-50 text-purple-900 border border-purple-100 rounded-xl px-3.5 py-1.5 text-xs font-mono font-semibold inline-flex items-center gap-1.5">
-                              <span>Executed Study Buddy command</span>
+                              <span>{t.messages.roomAction}</span>
                             </div>
                           </div>
                         )}
@@ -958,11 +1026,11 @@ function Dashboard({ email }: { email: string }) {
                     <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center mx-auto text-purple-700">
                       <Search className="w-5 h-5" />
                     </div>
-                    <h3 className="text-sm font-bold text-[#1e0a45]">No messages found</h3>
+                    <h3 className="text-sm font-bold text-[#1e0a45]">{t.messages.noResultsTitle}</h3>
                     <p className="text-xs text-slate-500 max-w-sm mx-auto">
                       {searchQuery
-                        ? `No messages matched your search "${searchQuery}". Try clearing filters.`
-                        : "No messages in this category yet. Send a test WhatsApp message to see it appear live!"}
+                        ? t.messages.noResultsSearch.replace("{query}", searchQuery)
+                        : t.messages.noResultsCategory}
                     </p>
                     {searchQuery && (
                       <Button
@@ -974,7 +1042,7 @@ function Dashboard({ email }: { email: string }) {
                           setStatusFilter("all");
                         }}
                       >
-                        Reset Filters
+                        {t.messages.resetFilters}
                       </Button>
                     )}
                   </div>
@@ -989,16 +1057,16 @@ function Dashboard({ email }: { email: string }) {
                   <table className="w-full text-left text-xs">
                     <thead className="bg-purple-50/70 text-[#1e0a45] uppercase tracking-wider font-bold border-b border-purple-100/80">
                       <tr>
-                        <th className="px-5 py-3.5">Time</th>
-                        <th className="px-5 py-3.5">Sender</th>
-                        <th className="px-5 py-3.5">WhatsApp Message</th>
-                        <th className="px-5 py-3.5">Bot Correction & Reply</th>
-                        <th className="px-5 py-3.5">Status</th>
+                        <th className="px-5 py-3.5">{t.messages.timeCol}</th>
+                        <th className="px-5 py-3.5">{t.messages.senderCol}</th>
+                        <th className="px-5 py-3.5">{t.messages.messageCol}</th>
+                        <th className="px-5 py-3.5">{t.messages.replyCol}</th>
+                        <th className="px-5 py-3.5">{t.messages.statusCol}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-purple-50 text-slate-700">
                       {filteredMessages.map((msg) => {
-                        const s = getStatusInfo(msg.status);
+                        const s = getStatusInfo(msg.status, selectedLang);
 
                         return (
                           <tr key={msg.id} className="hover:bg-purple-50/40 transition-colors">
@@ -1037,7 +1105,7 @@ function Dashboard({ email }: { email: string }) {
                       {filteredMessages.length === 0 && (
                         <tr>
                           <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
-                            No messages match your criteria.
+                            {t.messages.noTableMessages}
                           </td>
                         </tr>
                       )}
@@ -1054,9 +1122,9 @@ function Dashboard({ email }: { email: string }) {
             <div className="rounded-3xl border border-purple-100/90 bg-white p-6 shadow-sm space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-purple-50">
                 <div>
-                  <h2 className="text-base font-bold text-[#1e0a45]">Correction Instructions (System Prompt)</h2>
+                  <h2 className="text-base font-bold text-[#1e0a45]">{t.settings.promptTitle}</h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Defines how Talk'n'Bit analyzes grammar, context, and crafts friendly corrections and explanations.
+                    {t.settings.promptSubtitle}
                   </p>
                 </div>
                 <Button
@@ -1064,7 +1132,7 @@ function Dashboard({ email }: { email: string }) {
                   disabled={mutation.isPending || currentPrompt.trim().length < 20}
                   onClick={() => mutation.mutate({ system_prompt: currentPrompt })}
                 >
-                  Save Prompt
+                  {mutation.isPending ? t.settings.savingPrompt : t.settings.savePrompt}
                 </Button>
               </div>
 
@@ -1080,9 +1148,9 @@ function Dashboard({ email }: { email: string }) {
                   className="text-xs text-purple-900/70 hover:text-purple-950 rounded-full"
                   onClick={() => setPrompt(null)}
                 >
-                  Reset Changes
+                  {t.settings.resetChanges}
                 </Button>
-                <span className="text-[11px] text-slate-400">Must return valid JSON schema for bot parsing</span>
+                <span className="text-[11px] text-slate-400">{t.settings.validJsonNote}</span>
               </div>
             </div>
 
@@ -1094,7 +1162,7 @@ function Dashboard({ email }: { email: string }) {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="rounded-3xl border border-purple-100 bg-white p-5 shadow-xs">
                 <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
-                  <span>Active Subscribers</span>
+                  <span>{t.subscribers.activeTitle}</span>
                   <span className="p-1.5 rounded-full bg-emerald-100 text-emerald-800">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                   </span>
@@ -1102,12 +1170,12 @@ function Dashboard({ email }: { email: string }) {
                 <div className="mt-2 text-2xl font-extrabold text-[#1e0a45]">
                   {data?.subscriberStats?.active ?? 0}
                 </div>
-                <div className="mt-1 text-[11px] text-emerald-700 font-semibold">Paying & VIP Members</div>
+                <div className="mt-1 text-[11px] text-emerald-700 font-semibold">{t.subscribers.activeSub}</div>
               </div>
 
               <div className="rounded-3xl border border-purple-100 bg-white p-5 shadow-xs">
                 <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
-                  <span>Free Trials</span>
+                  <span>{t.subscribers.trialsTitle}</span>
                   <span className="p-1.5 rounded-full bg-amber-100 text-amber-800">
                     <Zap className="w-3.5 h-3.5" />
                   </span>
@@ -1115,12 +1183,12 @@ function Dashboard({ email }: { email: string }) {
                 <div className="mt-2 text-2xl font-extrabold text-[#1e0a45]">
                   {data?.subscriberStats?.trial ?? 0}
                 </div>
-                <div className="mt-1 text-[11px] text-amber-700 font-semibold">24h / 15-msg trials</div>
+                <div className="mt-1 text-[11px] text-amber-700 font-semibold">{t.subscribers.trialsSub}</div>
               </div>
 
               <div className="rounded-3xl border border-purple-100 bg-white p-5 shadow-xs">
                 <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
-                  <span>Paywalled / Expired</span>
+                  <span>{t.subscribers.expiredTitle}</span>
                   <span className="p-1.5 rounded-full bg-rose-100 text-rose-800">
                     <AlertCircle className="w-3.5 h-3.5" />
                   </span>
@@ -1128,12 +1196,12 @@ function Dashboard({ email }: { email: string }) {
                 <div className="mt-2 text-2xl font-extrabold text-[#1e0a45]">
                   {data?.subscriberStats?.expired ?? 0}
                 </div>
-                <div className="mt-1 text-[11px] text-slate-500 font-medium">Shown paywall card</div>
+                <div className="mt-1 text-[11px] text-slate-500 font-medium">{t.subscribers.expiredSub}</div>
               </div>
 
               <div className="rounded-3xl border border-purple-100 bg-white p-5 shadow-xs">
                 <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
-                  <span>Total Users Seen</span>
+                  <span>{t.subscribers.totalTitle}</span>
                   <span className="p-1.5 rounded-full bg-purple-100 text-purple-800">
                     <Users className="w-3.5 h-3.5" />
                   </span>
@@ -1141,7 +1209,7 @@ function Dashboard({ email }: { email: string }) {
                 <div className="mt-2 text-2xl font-extrabold text-[#1e0a45]">
                   {data?.subscriberStats?.total ?? 0}
                 </div>
-                <div className="mt-1 text-[11px] text-purple-700 font-semibold">Tracked numbers</div>
+                <div className="mt-1 text-[11px] text-purple-700 font-semibold">{t.subscribers.totalSub}</div>
               </div>
             </div>
 
@@ -1152,19 +1220,19 @@ function Dashboard({ email }: { email: string }) {
                   <CreditCard className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-[#1e0a45]">Manual Access Grant & Number Activation</h3>
-                  <p className="text-xs text-slate-500">Instantly activate or extend access for a WhatsApp phone number</p>
+                  <h3 className="text-sm font-bold text-[#1e0a45]">{t.subscribers.grantTitle}</h3>
+                  <p className="text-xs text-slate-500">{t.subscribers.grantSubtitle}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div className="sm:col-span-2">
                   <Label htmlFor="grant-phone" className="text-xs font-semibold text-[#1e0a45]">
-                    WhatsApp Number (with country code)
+                    {t.subscribers.phoneLabel}
                   </Label>
                   <Input
                     id="grant-phone"
-                    placeholder="e.g. 5513991878104"
+                    placeholder={t.subscribers.phonePlaceholder}
                     value={grantPhone}
                     onChange={(e) => setGrantPhone(e.target.value)}
                     className="mt-1 text-xs rounded-xl border-purple-100"
@@ -1172,17 +1240,17 @@ function Dashboard({ email }: { email: string }) {
                 </div>
                 <div>
                   <Label htmlFor="grant-plan" className="text-xs font-semibold text-[#1e0a45]">
-                    Plan Type
+                    {t.subscribers.planLabel}
                   </Label>
                   <select
                     id="grant-plan"
                     value={grantPlan}
                     onChange={(e) => setGrantPlan(e.target.value as any)}
-                    className="mt-1 w-full text-xs rounded-xl border border-purple-100 bg-white p-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-600"
+                    className="mt-1 w-full text-xs rounded-xl border border-purple-100 bg-white p-2 text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-600 cursor-pointer"
                   >
-                    <option value="monthly">Monthly Plan (30 days)</option>
-                    <option value="yearly">Yearly Plan (365 days)</option>
-                    <option value="lifetime">Lifetime VIP (Unlimited)</option>
+                    <option value="monthly">{t.subscribers.planMonthly}</option>
+                    <option value="yearly">{t.subscribers.planYearly}</option>
+                    <option value="lifetime">{t.subscribers.planLifetime}</option>
                   </select>
                 </div>
                 <div className="flex items-end">
@@ -1193,9 +1261,9 @@ function Dashboard({ email }: { email: string }) {
                       const days = grantPlan === "yearly" ? 365 : grantPlan === "lifetime" ? 3650 : 30;
                       grantMutation.mutate({ phone: grantPhone, plan: grantPlan, days });
                     }}
-                    className="w-full rounded-xl bg-[#240b4a] text-white hover:bg-purple-900 text-xs font-bold h-9"
+                    className="w-full rounded-xl bg-[#240b4a] text-white hover:bg-purple-900 text-xs font-bold h-9 cursor-pointer"
                   >
-                    {grantMutation.isPending ? "Activating..." : "Unlock Number 🚀"}
+                    {grantMutation.isPending ? t.subscribers.activatingBtn : t.subscribers.unlockBtn}
                   </Button>
                 </div>
               </div>
@@ -1206,7 +1274,7 @@ function Dashboard({ email }: { email: string }) {
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input
-                  placeholder="Search subscriber by phone digits or plan..."
+                  placeholder={t.subscribers.searchPlaceholder}
                   value={subSearchQuery}
                   onChange={(e) => setSubSearchQuery(e.target.value)}
                   className="pl-9 text-xs rounded-full border-purple-100 bg-purple-50/40"
@@ -1214,20 +1282,28 @@ function Dashboard({ email }: { email: string }) {
               </div>
 
               <div className="flex items-center gap-1.5 overflow-x-auto">
-                {(["all", "active", "trial", "expired"] as const).map((filter) => (
-                  <button
-                    key={filter}
-                    type="button"
-                    onClick={() => setSubStatusFilter(filter)}
-                    className={`rounded-full px-3 py-1 text-xs font-semibold capitalize transition-all cursor-pointer ${
-                      subStatusFilter === filter
-                        ? "bg-[#240b4a] text-white"
-                        : "bg-purple-50 text-[#1e0a45] hover:bg-purple-100"
-                    }`}
-                  >
-                    {filter}
-                  </button>
-                ))}
+                {(["all", "active", "trial", "expired"] as const).map((filter) => {
+                  const filterLabels: Record<string, string> = {
+                    all: t.subscribers.filterAll,
+                    active: t.subscribers.filterActive,
+                    trial: t.subscribers.filterTrial,
+                    expired: t.subscribers.filterExpired,
+                  };
+                  return (
+                    <button
+                      key={filter}
+                      type="button"
+                      onClick={() => setSubStatusFilter(filter)}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold capitalize transition-all cursor-pointer ${
+                        subStatusFilter === filter
+                          ? "bg-[#240b4a] text-white"
+                          : "bg-purple-50 text-[#1e0a45] hover:bg-purple-100"
+                      }`}
+                    >
+                      {filterLabels[filter] || filter}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -1237,19 +1313,19 @@ function Dashboard({ email }: { email: string }) {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-purple-50/70 border-b border-purple-100 text-[11px] font-bold text-[#1e0a45] uppercase tracking-wider">
                     <tr>
-                      <th className="py-3 px-4">Phone Number</th>
-                      <th className="py-3 px-4">Status</th>
-                      <th className="py-3 px-4">Plan</th>
-                      <th className="py-3 px-4">Messages Count</th>
-                      <th className="py-3 px-4">Access Expires</th>
-                      <th className="py-3 px-4 text-right">Quick Action</th>
+                      <th className="py-3 px-4">{t.subscribers.colPhone}</th>
+                      <th className="py-3 px-4">{t.subscribers.colStatus}</th>
+                      <th className="py-3 px-4">{t.subscribers.colPlan}</th>
+                      <th className="py-3 px-4">{t.subscribers.colMessages}</th>
+                      <th className="py-3 px-4">{t.subscribers.colExpires}</th>
+                      <th className="py-3 px-4 text-right">{t.subscribers.colActions}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-purple-50">
                     {filteredSubscribers.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
-                          No subscribers match your search filter.
+                          {t.subscribers.noSubscribers}
                         </td>
                       </tr>
                     ) : (
@@ -1287,12 +1363,12 @@ function Dashboard({ email }: { email: string }) {
                                 </span>
                               ) : (
                                 <span className="font-medium text-emerald-800">
-                                  {sub.messages_count} (Unlimited)
+                                  {sub.messages_count} ({t.subscribers.unlimitedMsgs})
                                 </span>
                               )}
                             </td>
                             <td className="py-3.5 px-4 text-slate-500 font-mono text-[11px]">
-                              {expiryDate ? new Date(expiryDate).toLocaleString() : "Never"}
+                              {expiryDate ? new Date(expiryDate).toLocaleString() : t.subscribers.neverExpires}
                             </td>
                             <td className="py-3.5 px-4 text-right">
                               <div className="flex items-center justify-end gap-1.5">
@@ -1303,9 +1379,9 @@ function Dashboard({ email }: { email: string }) {
                                   onClick={() => {
                                     grantMutation.mutate({ phone: sub.phone_number, plan: "monthly", days: 30 });
                                   }}
-                                  className="h-7 text-[11px] rounded-lg border-purple-100 text-purple-900 hover:bg-purple-100"
+                                  className="h-7 text-[11px] rounded-lg border-purple-100 text-purple-900 hover:bg-purple-100 cursor-pointer"
                                 >
-                                  +30 Days
+                                  {t.subscribers.btn30Days}
                                 </Button>
                                 <Button
                                   size="sm"
@@ -1314,35 +1390,35 @@ function Dashboard({ email }: { email: string }) {
                                   onClick={() => {
                                     grantMutation.mutate({ phone: sub.phone_number, plan: "lifetime", days: 3650 });
                                   }}
-                                  className="h-7 text-[11px] rounded-lg border-purple-200 bg-purple-50 text-purple-950 font-bold hover:bg-purple-200"
+                                  className="h-7 text-[11px] rounded-lg border-purple-200 bg-purple-50 text-purple-950 font-bold hover:bg-purple-200 cursor-pointer"
                                 >
-                                  VIP
+                                  {t.subscribers.btnVip}
                                 </Button>
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  title="Reset Message Count to 0"
+                                  title={t.subscribers.resetCountTooltip}
                                   disabled={resetCountMutation.isPending}
                                   onClick={() => {
                                     if (confirm(`Reset message count to 0 for ${sub.phone_number}?`)) {
                                       resetCountMutation.mutate(sub.phone_number);
                                     }
                                   }}
-                                  className="h-7 px-2 text-[11px] rounded-lg border-amber-200 text-amber-900 bg-amber-50 hover:bg-amber-100"
+                                  className="h-7 px-2 text-[11px] rounded-lg border-amber-200 text-amber-900 bg-amber-50 hover:bg-amber-100 cursor-pointer"
                                 >
                                   <RotateCcw className="w-3 h-3" />
                                 </Button>
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  title="Remove Subscriber"
+                                  title={t.subscribers.removeSubTooltip}
                                   disabled={deleteSubMutation.isPending}
                                   onClick={() => {
                                     if (confirm(`Remove subscriber ${sub.phone_number}?`)) {
                                       deleteSubMutation.mutate(sub.id);
                                     }
                                   }}
-                                  className="h-7 px-2 text-[11px] rounded-lg border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100"
+                                  className="h-7 px-2 text-[11px] rounded-lg border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 cursor-pointer"
                                 >
                                   <Trash2 className="w-3 h-3" />
                                 </Button>
