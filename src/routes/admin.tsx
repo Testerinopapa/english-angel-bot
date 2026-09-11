@@ -220,8 +220,8 @@ function Dashboard({ email }: { email: string }) {
   const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({});
 
   const { data, isLoading, isFetching, error } = useQuery({
-    queryKey: ["dashboard"],
-    queryFn: () => fetchDashboard(),
+    queryKey: ["dashboard", email],
+    queryFn: () => fetchDashboard({ data: { email } }),
     refetchInterval: 30_000,
   });
 

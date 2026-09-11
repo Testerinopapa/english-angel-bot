@@ -6,19 +6,33 @@ import { assertAdmin, buildSettingsPatch } from "@/lib/admin.server";
 
 export const getDashboard = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((input: unknown) => {
+    if (input && typeof input === "object" && "email" in input) {
+      return { email: String((input as any).email) };
+    }
+    return { email: undefined };
+  })
+  .handler(async ({ data, context }) => {
     const { supabase, userId, claims } = context;
-    await assertAdmin(supabase, userId, (claims as any)?.email);
+    await assertAdmin(supabase, userId, claims, data?.email);
 
     const { metaConfigStatus, aiConfigStatus } = await import("@/lib/talknbit.server");
 
-    const { data: settings } = await supabase
+    let dbClient: any = supabase;
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      if (supabaseAdmin) dbClient = supabaseAdmin;
+    } catch {
+      dbClient = supabase;
+    }
+
+    const { data: settings } = await dbClient
       .from("app_settings")
       .select("bot_enabled, store_message_content, system_prompt, updated_at")
       .eq("id", 1)
       .maybeSingle();
 
-    const { data: events } = await supabase
+    const { data: events } = await dbClient
       .from("message_events")
       .select(
         "id, wa_message_id, sender_masked, status, has_error, correction_sent, error_detail, message_content, created_at",
@@ -27,19 +41,19 @@ export const getDashboard = createServerFn({ method: "GET" })
       .limit(100);
 
     const counts = async (status?: string) => {
-      const query = supabase.from("message_events").select("*", { count: "exact", head: true });
+      const query = dbClient.from("message_events").select("*", { count: "exact", head: true });
       const { count } = status ? await query.eq("status", status) : await query;
       return count ?? 0;
     };
 
-    const { data: subscribers } = await supabase
+    const { data: subscribers } = await dbClient
       .from("subscribers")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(100);
 
     const subCounts = async (status?: string) => {
-      const query = supabase.from("subscribers").select("*", { count: "exact", head: true });
+      const query = dbClient.from("subscribers").select("*", { count: "exact", head: true });
       const { count } = status ? await query.eq("status", status) : await query;
       return count ?? 0;
     };
@@ -47,7 +61,7 @@ export const getDashboard = createServerFn({ method: "GET" })
     return {
       settings: settings ?? null,
       meta: metaConfigStatus(),
-      ai: aiStatus,
+      ai: aiConfigStatus(),
       stats: {
         total: await counts(),
         corrected: (await counts("corrected")) + (await counts("corrected_group_dm")),
@@ -71,9 +85,17 @@ export const updateSettings = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => settingsUpdateSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId, claims } = context;
-    await assertAdmin(supabase, userId, (claims as any)?.email);
+    await assertAdmin(supabase, userId, claims);
 
-    const { error } = await supabase
+    let dbClient: any = supabase;
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      if (supabaseAdmin) dbClient = supabaseAdmin;
+    } catch {
+      dbClient = supabase;
+    }
+
+    const { error } = await dbClient
       .from("app_settings")
       .update(buildSettingsPatch(data))
       .eq("id", 1);
@@ -95,7 +117,7 @@ export const grantSubscriberAccess = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const { supabase, userId, claims } = context;
-    await assertAdmin(supabase, userId, (claims as any)?.email);
+    await assertAdmin(supabase, userId, claims);
 
     const { activateSubscription } = await import("@/lib/subscriptions.server");
     const updated = await activateSubscription(data.phone, data.plan, data.days, data.notes);
@@ -113,7 +135,7 @@ export const createStudyGroup = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const { supabase, userId, claims } = context;
-    await assertAdmin(supabase, userId, (claims as any)?.email);
+    await assertAdmin(supabase, userId, claims);
 
     const { createWhatsAppGroup } = await import("@/lib/talknbit.server");
     return await createWhatsAppGroup(data.subject, data.description);

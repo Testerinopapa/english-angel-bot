@@ -12,11 +12,50 @@ export const SUPERADMIN_EMAILS = [
 export async function assertAdmin(
   supabase: unknown,
   userId: string,
-  email?: string | null,
+  emailOrClaims?: unknown,
+  clientProvidedEmail?: string | null,
 ) {
+  let email: string | null | undefined = null;
+
+  if (typeof emailOrClaims === "string") {
+    email = emailOrClaims;
+  } else if (emailOrClaims && typeof emailOrClaims === "object") {
+    const obj = emailOrClaims as any;
+    email = obj.email || obj.user_metadata?.email || obj.app_metadata?.email;
+  }
+
+  if (!email && clientProvidedEmail) {
+    email = clientProvidedEmail;
+  }
+
+  // If still not resolved, query user's authenticated details directly from Supabase
+  if (!email && (supabase as any)?.auth?.getUser) {
+    try {
+      const { data } = await (supabase as any).auth.getUser();
+      if (data?.user?.email) {
+        email = data.user.email;
+      }
+    } catch (err) {
+      console.warn("assertAdmin: supabase.auth.getUser error:", err);
+    }
+  }
+
+  // Try service role client if available
+  if (!email) {
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data } = await supabaseAdmin.auth.admin.getUserById(userId);
+      if (data?.user?.email) {
+        email = data.user.email;
+      }
+    } catch (err) {
+      console.warn("assertAdmin: supabaseAdmin getUserById error:", err);
+    }
+  }
+
   const normalizedEmail = email?.toLowerCase().trim();
 
-  // If email is in the designated superadmin list, ensure role exists and authorize immediately!
+  // If email is in designated superadmin list, ensure role in user_roles and authorize
   if (normalizedEmail && SUPERADMIN_EMAILS.includes(normalizedEmail)) {
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -30,6 +69,20 @@ export async function assertAdmin(
       console.warn("Could not auto-upsert superadmin role in user_roles:", err);
     }
     return;
+  }
+
+  // Check user_roles table directly with service role if available
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: roleRow } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (roleRow) return;
+  } catch (err) {
+    // fallback to rpc
   }
 
   const { data } = await (supabase as RpcClient).rpc("has_role", {
