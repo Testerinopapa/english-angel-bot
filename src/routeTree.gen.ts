@@ -13,6 +13,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as CheckoutRouteImport } from './routes/checkout'
+import { Route as PaymentConfirmedRouteImport } from './routes/payment-confirmed'
 
 import { Route as ApiPublicWhatsappRouteImport } from './routes/api/public/whatsapp'
 
@@ -37,6 +40,21 @@ const PrivacyRoute = PrivacyRouteImport.update({
   path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PaymentConfirmedRoute = PaymentConfirmedRouteImport.update({
+  id: '/payment-confirmed',
+  path: '/payment-confirmed',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicWhatsappRoute = ApiPublicWhatsappRouteImport.update({
   id: '/api/public/whatsapp',
   path: '/api/public/whatsapp',
@@ -48,6 +66,9 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/pricing': typeof PricingRoute
+  '/checkout': typeof CheckoutRoute
+  '/payment-confirmed': typeof PaymentConfirmedRoute
   '/api/public/whatsapp': typeof ApiPublicWhatsappRoute
 }
 export interface FileRoutesByTo {
@@ -55,6 +76,9 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/pricing': typeof PricingRoute
+  '/checkout': typeof CheckoutRoute
+  '/payment-confirmed': typeof PaymentConfirmedRoute
   '/api/public/whatsapp': typeof ApiPublicWhatsappRoute
 }
 export interface FileRoutesById {
@@ -63,14 +87,17 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/pricing': typeof PricingRoute
+  '/checkout': typeof CheckoutRoute
+  '/payment-confirmed': typeof PaymentConfirmedRoute
   '/api/public/whatsapp': typeof ApiPublicWhatsappRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/privacy' | '/terms' | '/api/public/whatsapp'
+  fullPaths: '/' | '/admin' | '/privacy' | '/terms' | '/pricing' | '/checkout' | '/payment-confirmed' | '/api/public/whatsapp'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/privacy' | '/terms' | '/api/public/whatsapp'
-  id: '__root__' | '/' | '/admin' | '/privacy' | '/terms' | '/api/public/whatsapp'
+  to: '/' | '/admin' | '/privacy' | '/terms' | '/pricing' | '/checkout' | '/payment-confirmed' | '/api/public/whatsapp'
+  id: '__root__' | '/' | '/admin' | '/privacy' | '/terms' | '/pricing' | '/checkout' | '/payment-confirmed' | '/api/public/whatsapp'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -78,6 +105,9 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
+  PricingRoute: typeof PricingRoute
+  CheckoutRoute: typeof CheckoutRoute
+  PaymentConfirmedRoute: typeof PaymentConfirmedRoute
   ApiPublicWhatsappRoute: typeof ApiPublicWhatsappRoute
 }
 
@@ -111,6 +141,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/payment-confirmed': {
+      id: '/payment-confirmed'
+      path: '/payment-confirmed'
+      fullPath: '/payment-confirmed'
+      preLoaderRoute: typeof PaymentConfirmedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/whatsapp': {
       id: '/api/public/whatsapp'
       path: '/api/public/whatsapp'
@@ -126,6 +177,9 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
+  PricingRoute: PricingRoute,
+  CheckoutRoute: CheckoutRoute,
+  PaymentConfirmedRoute: PaymentConfirmedRoute,
   ApiPublicWhatsappRoute: ApiPublicWhatsappRoute,
 }
 export const routeTree = rootRouteImport

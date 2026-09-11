@@ -654,7 +654,7 @@ async function processInteractiveMessage(msg: IncomingInteractiveMessage) {
       "💳 *Talk'n'Bit Monthly Plan — R$ 39,90/month*",
       "",
       "Unlock unlimited 1-on-1 English coaching, instant grammar cards, and partner rooms:",
-      "👉 https://english-angel-bot.lovable.app/#pricing",
+      "👉 https://english-angel-bot.lovable.app/checkout?plan=monthly",
       "",
       "Once payment is confirmed, this WhatsApp number will be activated automatically! 🚀",
     ].join("\n");
@@ -667,10 +667,10 @@ async function processInteractiveMessage(msg: IncomingInteractiveMessage) {
     });
   } else if (msg.buttonId === "btn_pay_yearly") {
     const text = [
-      "🚀 *Talk'n'Bit Yearly Plan — R$ 23,90/month (40% OFF)*",
+      "🚀 *Talk'n'Bit Yearly Plan — R$ 21/month (40% OFF)*",
       "",
       "Our most popular plan for guaranteed fluency over 12 months!",
-      "👉 https://english-angel-bot.lovable.app/#pricing",
+      "👉 https://english-angel-bot.lovable.app/checkout?plan=yearly",
       "",
       "Instant activation on this WhatsApp number upon confirmation. 🌟",
     ].join("\n");
@@ -692,7 +692,7 @@ async function processInteractiveMessage(msg: IncomingInteractiveMessage) {
       "• *Bilingual Q&A:* Ask how to say anything in Portuguese or Spanish.",
       "",
       "Ready to start? Choose a plan below or visit:",
-      "👉 https://english-angel-bot.lovable.app/#pricing",
+      "👉 https://english-angel-bot.lovable.app/pricing",
     ].join("\n");
 
     await sendWhatsAppInteractiveButtons(

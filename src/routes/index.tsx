@@ -203,12 +203,12 @@ function LandingPage() {
             >
               {t.nav.howItWorks}
             </button>
-            <button
-              onClick={() => scrollToSection("plans")}
+            <Link
+              to="/pricing"
               className="hover:text-purple-600 transition-colors cursor-pointer capitalize"
             >
               {t.nav.plans}
-            </button>
+            </Link>
             <button
               onClick={() => setIsBlogOpen(true)}
               className="hover:text-purple-600 transition-colors cursor-pointer capitalize"
@@ -353,12 +353,13 @@ function LandingPage() {
             >
               {t.nav.howItWorks}
             </button>
-            <button
-              onClick={() => scrollToSection("plans")}
+            <Link
+              to="/pricing"
+              onClick={() => setIsMobileMenuOpen(false)}
               className="block w-full text-left py-2 text-sm font-semibold text-[#1e0a45] hover:text-purple-700 capitalize"
             >
               {t.nav.plans}
-            </button>
+            </Link>
             <button
               onClick={() => {
                 setIsMobileMenuOpen(false);
@@ -859,14 +860,13 @@ function LandingPage() {
                 </div>
               </div>
               <div className="mt-8 pt-6 border-t border-slate-100">
-                <a
-                  href={getWhatsAppUrl(t.whatsappMessages.monthly)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block w-full py-3 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-[#1f0a44] hover:bg-slate-200 transition-colors"
+                <Link
+                  to="/checkout"
+                  search={{ plan: "monthly" }}
+                  className="block w-full py-3 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-[#1f0a44] hover:bg-slate-200 transition-colors text-center cursor-pointer"
                 >
                   {t.plans.getMonthly}
-                </a>
+                </Link>
               </div>
             </div>
 
@@ -891,14 +891,13 @@ function LandingPage() {
                 </div>
               </div>
               <div className="mt-8 pt-6 border-t border-slate-100">
-                <a
-                  href={getWhatsAppUrl(t.whatsappMessages.semi)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block w-full py-3 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-[#1f0a44] hover:bg-slate-200 transition-colors"
+                <Link
+                  to="/checkout"
+                  search={{ plan: "semi" }}
+                  className="block w-full py-3 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-100 text-[#1f0a44] hover:bg-slate-200 transition-colors text-center cursor-pointer"
                 >
                   {t.plans.getSemi}
-                </a>
+                </Link>
               </div>
             </div>
 
@@ -926,14 +925,13 @@ function LandingPage() {
                 </div>
               </div>
               <div className="mt-8 pt-6 border-t border-slate-100">
-                <a
-                  href={getWhatsAppUrl(t.whatsappMessages.yearly)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block w-full py-3 rounded-full text-xs font-bold uppercase tracking-wider bg-[#240b4a] text-white hover:bg-purple-900 transition-colors shadow-md"
+                <Link
+                  to="/checkout"
+                  search={{ plan: "yearly" }}
+                  className="block w-full py-3 rounded-full text-xs font-bold uppercase tracking-wider bg-[#240b4a] text-white hover:bg-purple-900 transition-colors shadow-md text-center cursor-pointer"
                 >
                   {t.plans.getYearly}
-                </a>
+                </Link>
               </div>
             </div>
           </div>
@@ -946,13 +944,12 @@ function LandingPage() {
             </div>
 
             <div>
-              <button
-                type="button"
-                onClick={() => scrollToSection("plans")}
+              <Link
+                to="/pricing"
                 className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#240b4a] via-[#481885] to-[#170535] border border-white/20 px-10 py-3.5 text-sm font-semibold text-white shadow-xl shadow-purple-950/50 transition-all hover:scale-105 hover:border-white/40 cursor-pointer"
               >
                 {t.plans.choosePlan}
-              </button>
+              </Link>
             </div>
           </div>
         </div>
@@ -1064,6 +1061,9 @@ function LandingPage() {
 
             {/* Col 4: Terms, Privacy, Contact, Admin Portal */}
             <div className="space-y-2.5 text-xs sm:text-sm font-medium">
+              <Link to="/pricing" className="block hover:underline font-semibold text-[#1e0a45]">
+                {t.nav.plans} & Pricing →
+              </Link>
               <Link to="/terms" className="block hover:underline">
                 {t.footer.terms}
               </Link>
