@@ -212,10 +212,6 @@ function CheckoutPage() {
       toast.error("Please enter your full name");
       return;
     }
-    if (!email.trim() || !email.includes("@")) {
-      toast.error("Please enter a valid email address");
-      return;
-    }
 
     if (plan !== "trial" && paymentMethod === "credit_card") {
       if (cardNumber.replace(/\s/g, "").length < 13) {
@@ -409,15 +405,15 @@ function CheckoutPage() {
                 />
               </div>
 
-              {/* Email */}
+              {/* Email (Optional) */}
               <div className="space-y-1.5 pt-1">
                 <Label htmlFor="email" className="text-xs font-semibold text-slate-700">
-                  {t.checkout.emailLabel} <span className="text-rose-500">*</span>
+                  {t.checkout.emailLabel}{" "}
+                  <span className="text-slate-400 font-normal">({t.checkout.emailOptional})</span>
                 </Label>
                 <Input
                   id="email"
                   type="email"
-                  required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={t.checkout.emailPlaceholder}

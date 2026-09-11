@@ -52,9 +52,6 @@ export const processCheckout = createServerFn({ method: "POST" })
     }
 
     const email = String(data.email || "").trim();
-    if (!email || !email.includes("@")) {
-      throw new Error("A valid email address is required");
-    }
 
     const plan = (data.plan || "yearly") as CheckoutPlanId;
     const paymentMethod = (data.paymentMethod || (plan === "trial" ? "free_trial" : "pix")) as CheckoutPaymentMethod;
@@ -134,9 +131,10 @@ export const processCheckout = createServerFn({ method: "POST" })
       amountFormatted = "R$ 497,00";
     }
 
+    const emailSnippet = data.email ? ` (${data.email})` : "";
     const notes = data.plan === "trial"
-      ? `15-Day Free Trial Activation | Phone: ${normalizedDigits} | User: ${data.name} (${data.email})`
-      : `Online Checkout Order #${orderId} | Buyer: ${data.name} (${data.email}) | Payment: ${data.paymentMethod.toUpperCase()}${
+      ? `15-Day Free Trial Activation | Phone: ${normalizedDigits} | User: ${data.name}${emailSnippet}`
+      : `Online Checkout Order #${orderId} | Buyer: ${data.name}${emailSnippet} | Payment: ${data.paymentMethod.toUpperCase()}${
           data.paymentMethod === "credit_card" && data.installments && data.installments > 1
             ? ` (${data.installments}x)`
             : ""

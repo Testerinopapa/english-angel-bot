@@ -70,6 +70,7 @@ export interface CheckoutTranslationSchema {
     nameLabel: string;
     namePlaceholder: string;
     emailLabel: string;
+    emailOptional: string;
     emailPlaceholder: string;
     step2Title: string;
     tabPix: string;
@@ -242,6 +243,7 @@ export const CHECKOUT_TRANSLATIONS: Record<SupportedLang, CheckoutTranslationSch
       nameLabel: "Your Full Name",
       namePlaceholder: "e.g. Maria Silva",
       emailLabel: "Email Address",
+      emailOptional: "optional",
       emailPlaceholder: "maria@example.com",
       step2Title: "2. Payment Method",
       tabPix: "Pix (Instant)",
@@ -413,6 +415,7 @@ export const CHECKOUT_TRANSLATIONS: Record<SupportedLang, CheckoutTranslationSch
       nameLabel: "Seu Nome Completo",
       namePlaceholder: "ex: Maria Silva",
       emailLabel: "Endereço de E-mail",
+      emailOptional: "opcional",
       emailPlaceholder: "maria@exemplo.com",
       step2Title: "2. Forma de Pagamento",
       tabPix: "Pix (Imediato)",
@@ -584,6 +587,7 @@ export const CHECKOUT_TRANSLATIONS: Record<SupportedLang, CheckoutTranslationSch
       nameLabel: "Tu Nombre Completo",
       namePlaceholder: "ej: María Silva",
       emailLabel: "Correo Electrónico",
+      emailOptional: "opcional",
       emailPlaceholder: "maria@ejemplo.com",
       step2Title: "2. Método de Pago",
       tabPix: "Pix (Instantáneo)",
