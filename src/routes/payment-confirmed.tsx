@@ -32,14 +32,15 @@ export const Route = createFileRoute("/payment-confirmed")({
     ],
   }),
   validateSearch: (search: Record<string, unknown>) => {
+    const s = search as any;
     return {
-      orderId: String(search.orderId || "TNB-" + Math.floor(100000 + Math.random() * 900000)),
-      phone: String(search.phone || "5513991878104"),
-      name: String(search.name || "Student"),
-      plan: String(search.plan || "yearly"),
-      paymentMethod: String(search.paymentMethod || "pix"),
-      amount: String(search.amount || "R$ 252,00"),
-      expiresAt: String(search.expiresAt || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()),
+      orderId: String(s.orderId || "TNB-" + Math.floor(100000 + Math.random() * 900000)),
+      phone: String(s.phone || "5513991878104"),
+      name: String(s.name || "Student"),
+      plan: String(s.plan || "yearly"),
+      paymentMethod: String(s.paymentMethod || "pix"),
+      amount: String(s.amount || "R$ 252,00"),
+      expiresAt: String(s.expiresAt || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()),
     };
   },
   component: PaymentConfirmedPage,

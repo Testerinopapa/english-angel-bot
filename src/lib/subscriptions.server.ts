@@ -96,7 +96,7 @@ export async function getOrCreateSubscriber(rawPhone: string): Promise<Entitleme
   let subscriber: SubscriberRow;
 
   if (rows && rows.length > 0) {
-    const activeRow = rows.find((r) => r.status === "active" || r.status === "vip") || rows[0];
+    const activeRow = rows.find((r) => r.status === "active" || r.status === "vip") || rows[0]!;
     subscriber = activeRow as SubscriberRow;
 
     if (rows.length > 1) {
@@ -269,7 +269,7 @@ export async function incrementSubscriberMessageCount(rawPhone: string): Promise
     .in("phone_number", variants);
 
   if (rows && rows.length > 0) {
-    const activeRow = rows.find((r) => r.status === "active" || r.status === "vip") || rows[0];
+    const activeRow = rows.find((r) => r.status === "active" || r.status === "vip") || rows[0]!;
     const totalCount = rows.reduce((acc, r) => acc + (r.messages_count || 0), 0) + 1;
 
     await supabaseAdmin
@@ -365,7 +365,7 @@ export async function activateSubscription(
         ...(plan === "free_trial"
           ? {
               trial_started_at: now.toISOString(),
-              trial_ends_at: endsAt ? endsAt.toISOString() : null,
+              ...(endsAt ? { trial_ends_at: endsAt.toISOString() } : {}),
             }
           : {}),
         messages_count: currentCount,

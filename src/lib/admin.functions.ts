@@ -237,7 +237,8 @@ export const linkPhoneToStudentAccount = createServerFn({ method: "POST" })
     const data = input as any;
     const phone = String(data.phone || "").replace(/\D/g, "");
     if (phone.length < 8) throw new Error("Please enter a valid phone number");
-    return { phone, email: data.email ? String(data.email).trim() : undefined };
+    const emailValue = data.email ? String(data.email).trim() : "";
+    return emailValue ? { phone, email: emailValue } : { phone };
   })
   .handler(async ({ data, context }) => {
     const { getPhoneVariants, normalizePhoneNumber } = await import("@/lib/subscriptions.server");
@@ -261,6 +262,9 @@ export const linkPhoneToStudentAccount = createServerFn({ method: "POST" })
     }
 
     const targetRow = rows[0];
+    if (!targetRow) {
+      throw new Error("No subscription found for this phone number.");
+    }
     if (userEmail) {
       const currentNotes = targetRow.notes || "";
       const updatedNotes = currentNotes.includes(userEmail)

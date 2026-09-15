@@ -39,8 +39,9 @@ export const Route = createFileRoute("/checkout")({
     ],
   }),
   validateSearch: (search: Record<string, unknown>): { plan?: CheckoutPlanId } => {
+    const s = search as any;
     return {
-      plan: (search.plan as CheckoutPlanId) || "yearly",
+      plan: (s.plan as CheckoutPlanId) || "yearly",
     };
   },
   component: CheckoutPage,
@@ -107,7 +108,8 @@ function CheckoutPage() {
         setCurrentUserEmail(user.email);
         setEmail((prev) => prev || user.email || "");
       }
-      const fullName = (user.user_metadata?.full_name || user.user_metadata?.name || "") as string;
+      const meta = (user.user_metadata ?? {}) as any;
+      const fullName = (meta.full_name || meta.name || "") as string;
       if (fullName) {
         setName((prev) => prev || fullName);
       }

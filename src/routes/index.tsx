@@ -681,7 +681,7 @@ function LandingPage() {
                         <span>{t.hero.whyButton}</span>
                         {showVocabWhy ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                       </button>
-                      <span className="text-slate-400">{t.vocabulary.contextAi}</span>
+                      <span className="text-slate-400">{t.vocabulary.vocabRuleTitle}</span>
                     </div>
 
                     {/* Interactive Explanation Dropdown */}

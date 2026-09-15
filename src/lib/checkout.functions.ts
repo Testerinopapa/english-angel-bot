@@ -39,7 +39,7 @@ export const processCheckout = createServerFn({ method: "POST" })
     if (!input || typeof input !== "object") {
       throw new Error("Invalid checkout payload");
     }
-    const data = input as Record<string, any>;
+    const data = input as any;
 
     const phone = String(data.phone || "").trim();
     if (!phone || phone.replace(/\D/g, "").length < 8) {

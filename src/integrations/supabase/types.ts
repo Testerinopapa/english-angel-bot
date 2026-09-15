@@ -80,6 +80,48 @@ export type Database = {
         }
         Relationships: []
       }
+      subscribers: {
+        Row: {
+          created_at: string
+          id: string
+          messages_count: number
+          notes: string | null
+          phone_number: string
+          plan: string
+          status: string
+          subscription_ends_at: string | null
+          trial_ends_at: string
+          trial_started_at: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          messages_count?: number
+          notes?: string | null
+          phone_number: string
+          plan?: string
+          status?: string
+          subscription_ends_at?: string | null
+          trial_ends_at?: string
+          trial_started_at?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          messages_count?: number
+          notes?: string | null
+          phone_number?: string
+          plan?: string
+          status?: string
+          subscription_ends_at?: string | null
+          trial_ends_at?: string
+          trial_started_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

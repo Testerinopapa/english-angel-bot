@@ -167,8 +167,8 @@ function parseMessageEvent(row: MessageEventRow) {
     isRoom = true;
     const match = studentText.match(/^\[Room #([^\]]+)\]\s*(.*)$/);
     if (match) {
-      roomCode = match[1];
-      studentText = match[2];
+      roomCode = match[1] ?? null;
+      studentText = match[2] ?? "";
     }
   } else if (studentText.startsWith("[Group] ")) {
     isGroup = true;
@@ -493,7 +493,7 @@ function StudentPortal({
                   <div className="rounded-2xl bg-white/10 backdrop-blur-md p-4 border border-white/15">
                     <div className="flex items-center gap-2 text-purple-200 text-xs font-semibold">
                       <Clock className="w-4 h-4 text-[#fec84d]" />
-                      <span>{t.studentPortal.expiresLabel}</span>
+                      <span>{t.studentPortal.expiresOn}</span>
                     </div>
                     <div className="mt-2 text-base sm:text-lg font-black tracking-tight text-white">
                       {isExpired ? `0 ${t.studentPortal.daysLeft}` : `${daysRemaining} ${t.studentPortal.daysLeft}`}
