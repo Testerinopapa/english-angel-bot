@@ -7,6 +7,7 @@ type RpcClient = {
 export const SUPERADMIN_EMAILS = [
   "lorendamasio@gmail.com",
   "gmalavaes@gmail.com",
+  "coelhobranco@proton.me",
 ];
 
 export async function assertAdmin(

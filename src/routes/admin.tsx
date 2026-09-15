@@ -929,9 +929,11 @@ function Dashboard({ email }: { email: string }) {
   const aiReady = ai?.configured ?? false;
   const aiLabel = ai?.label ?? (aiReady ? "Configured" : "Not configured");
 
-  const isSuperadmin = ["lorendamasio@gmail.com", "gmalavaes@gmail.com"].includes(
-    email.toLowerCase().trim(),
-  );
+  const isSuperadmin = [
+    "lorendamasio@gmail.com",
+    "gmalavaes@gmail.com",
+    "coelhobranco@proton.me",
+  ].includes(email.toLowerCase().trim());
 
   return (
     <div className="min-h-screen w-full bg-[#fbf9fe] text-[#1e0a45] font-sans selection:bg-[#fec84d] selection:text-[#1e0a45] relative flex flex-col">
